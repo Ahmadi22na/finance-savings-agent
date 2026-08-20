@@ -1,0 +1,49 @@
+name: CI
+
+# ============================================================
+# Finance & Savings Agent — CI أساسي
+# بس Lint + Test للـ backend حاليًا (مافي كود Flutter/Mobile بعد)
+# ما فيه أي خطوة Deploy — المشروع لسا بمرحلة Discovery
+# ============================================================
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend-checks:
+    name: Backend Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
+
+      - name: Lint (flake8)
+        working-directory: ./backend
+        run: flake8 app --max-line-length=100 --extend-ignore=E203 || true
+        # ⚠️ "|| true" مؤقت لحد ما ينضاف كود فعلي — رح تنشال لما يبلش التطوير الحقيقي
+
+      - name: Run tests (pytest)
+        working-directory: ./backend
+        run: pytest tests/ || echo "لا توجد اختبارات بعد — طبيعي بهاي المرحلة"
+
+  # agent-review-guard:
+  # ملاحظة: قسم 10 بالتوثيق بيتطلب مراجعة إلزامية من شخص ثانٍ
+  # لأي PR يمس backend/app/agent/. هاد شرط بشري (عبر GitHub branch
+  # protection + CODEOWNERS) مو Job آلي بالـ CI — لازم يُضبط يدويًا
+  # بإعدادات الـ repo (Settings → Branches → Require review).

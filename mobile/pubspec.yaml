@@ -1,0 +1,25 @@
+name: finance_savings_agent
+description: >
+  تطبيق إدارة مالية شخصية بتجربة Gamified — Skeleton فقط،
+  المشروع لسا بمرحلة Discovery (راجع قسم 12 بالتوثيق).
+publish_to: "none"
+
+version: 0.0.1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  # المكتبات الإضافية (state management، إلخ) تُضاف لاحقًا
+  # بعد ما ينحسم شكل الـ UX الفعلي (Concept Testing)
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
