@@ -1,0 +1,18 @@
+# ============================================
+# Finance & Savings Agent — Backend Dependencies
+# نسخ محددة تُثبّت لاحقًا عند بدء التطوير الفعلي
+# هاي بس المكتبات الأساسية المتفق عليها بالتوثيق (قسم 3)
+# ============================================
+
+flask
+pydantic
+psycopg2-binary
+python-dotenv
+flask-cors
+
+# --- Testing ---
+pytest
+
+# --- AI Provider SDKs (يُختار لاحقًا حسب AI_PROVIDER بـ .env) ---
+# anthropic
+# openai
