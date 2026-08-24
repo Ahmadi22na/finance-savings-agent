@@ -1,29 +1,45 @@
 """
-Config — إعدادات التطبيق الأساسية.
-هاد Skeleton فقط، لسا بدون منطق فعلي (المشروع بمرحلة Discovery).
-راجع قسم 3 و 4 بتوثيق AI Coding Context قبل التوسع هون.
+إعدادات التطبيق المركزية.
+كل القيم القابلة للتغيير بين البيئات (dev/staging/prod) تُقرأ من متغيرات البيئة (.env)
+ولا تُكتب مباشرة داخل الكود — هذا معيار أساسي لأي تطبيق جاهز للإنتاج والشراكة.
 """
-
-import os
-
-
-class Config:
-    """إعدادات مشتركة لكل البيئات."""
-    SECRET_KEY = os.environ.get("FLASK_SECRET_KEY")
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL")
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
-
-    # AI Provider — قابل للتبديل (قسم 3)
-    AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
+from functools import lru_cache
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class DevelopmentConfig(Config):
-    DEBUG = True
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # --- App ---
+    APP_NAME: str = "Rasheed - Finance Savings Agent"
+    ENVIRONMENT: str = "development"  # development | staging | production
+    DEBUG: bool = True
+
+    # --- Database ---
+    DATABASE_URL: str = "postgresql://rasheed_user:rasheed_pass@db:5432/rasheed_db"
+
+    # --- Auth / JWT ---
+    JWT_SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24          # يوم واحد
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # --- AI Agent (رشيد) ---
+    ANTHROPIC_API_KEY: str = ""
+    AGENT_MODEL: str = "claude-sonnet-4-6"
+    AGENT_DEFAULT_NAME: str = "رشيد"
+
+    # --- CORS ---
+    ALLOWED_ORIGINS: list[str] = ["*"]  # يُضيَّق في الإنتاج لدومين التطبيق فقط
 
 
-class TestingConfig(Config):
-    TESTING = True
+@lru_cache
+def get_settings() -> Settings:
+    """
+    استخدام lru_cache يضمن قراءة الإعدادات مرة واحدة فقط (Singleton)
+    بدل إعادة قراءة .env في كل طلب — تحسين أداء بسيط لكنه معيار شائع.
+    """
+    return Settings()
 
 
-class ProductionConfig(Config):
-    DEBUG = False
+settings = get_settings()
