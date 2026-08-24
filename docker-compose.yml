@@ -1,50 +1,37 @@
-version: "3.9"
-
-# ============================================================
-# Finance & Savings Agent — Docker Compose (بنية تحتية فقط)
-# لا منطق أعمال هون — فقط تشغيل الخدمات الأساسية للتطوير المحلي
-# ============================================================
-
 services:
   db:
     image: postgres:16-alpine
-    container_name: finance_db
+    container_name: rasheed_db
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-finance_app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-finance_savings_db}
+      POSTGRES_USER: rasheed_user
+      POSTGRES_PASSWORD: rasheed_pass
+      POSTGRES_DB: rasheed_db
     ports:
       - "5432:5432"
     volumes:
-      - finance_db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finance_app}"]
+      test: ["CMD-SHELL", "pg_isready -U rasheed_user -d rasheed_db"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: finance_backend
+    build: ./backend
+    container_name: rasheed_backend
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://rasheed_user:rasheed_pass@db:5432/rasheed_db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./backend:/app
-    command: flask run --host=0.0.0.0 --port=5000
 
 volumes:
-  finance_db_data:
-
-# ملاحظة: خدمة الموبايل (Flutter) ما بتنضاف هون —
-# Flutter بيتطور محليًا / بمحاكي، مو عبر Docker عادةً.
+  postgres_data:
