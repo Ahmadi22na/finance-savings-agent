@@ -1,50 +1,7 @@
-"""
-اختبارات أساسية لتدفق التسجيل والدخول.
-تستخدم SQLite في الذاكرة بدل PostgreSQL عشان تشتغل بسرعة بدون Docker —
-هذا شائع بالاختبارات الوحدوية (Unit Tests)، بينما الـ Integration Tests الحقيقية
-لازم تشتغل ضد PostgreSQL فعلي (نضيفها لاحقًا بـ CI).
-"""
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-from app.main import app
-from app.database.session import Base, get_db
-from app import models  # noqa: F401  — يسجّل كل الجداول بـ Base.metadata قبل create_all
-
-# StaticPool ضروري هون: بدونه SQLite in-memory بينشئ قاعدة بيانات جديدة فارغة
-# مع كل اتصال جديد، فبتضيع الجداول المُنشأة. StaticPool بيضمن استخدام نفس الاتصال دايمًا.
-engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
+"""اختبارات تدفق التسجيل والدخول — تستخدم client من conftest.py المشترك."""
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def clean_db():
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    yield
-
-
-def test_register_creates_user_and_returns_tokens():
+def test_register_creates_user_and_returns_tokens(client):
     response = client.post("/api/v1/auth/register", json={
         "name": "أحمد",
         "phone": "0790000000",
@@ -58,14 +15,14 @@ def test_register_creates_user_and_returns_tokens():
     assert data["user"]["agent_name"] == "رشيد"
 
 
-def test_register_duplicate_phone_fails():
+def test_register_duplicate_phone_fails(client):
     payload = {"name": "أحمد", "phone": "0790000001", "password": "strongpassword123"}
     client.post("/api/v1/auth/register", json=payload)
     response = client.post("/api/v1/auth/register", json=payload)
     assert response.status_code == 409
 
 
-def test_login_with_correct_credentials():
+def test_login_with_correct_credentials(client):
     client.post("/api/v1/auth/register", json={
         "name": "سارة", "phone": "0790000002", "password": "mypassword123",
     })
@@ -76,7 +33,7 @@ def test_login_with_correct_credentials():
     assert "access_token" in response.json()
 
 
-def test_login_with_wrong_password_fails():
+def test_login_with_wrong_password_fails(client):
     client.post("/api/v1/auth/register", json={
         "name": "سارة", "phone": "0790000003", "password": "mypassword123",
     })
@@ -86,12 +43,12 @@ def test_login_with_wrong_password_fails():
     assert response.status_code == 401
 
 
-def test_protected_route_requires_token():
+def test_protected_route_requires_token(client):
     response = client.get("/api/v1/users/me")
     assert response.status_code in (401, 403)
 
 
-def test_protected_route_with_valid_token():
+def test_protected_route_with_valid_token(client):
     register_response = client.post("/api/v1/auth/register", json={
         "name": "ليلى", "phone": "0790000004", "password": "mypassword123",
     })
