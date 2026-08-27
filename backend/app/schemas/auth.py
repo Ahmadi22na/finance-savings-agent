@@ -3,6 +3,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from app.models.user import IncomeType
+from app.schemas.persona import PersonaOut
 
 
 class UserRegister(BaseModel):
@@ -23,6 +24,8 @@ class UserOut(BaseModel):
     phone: str
     income_type: IncomeType
     agent_name: str
+    has_completed_onboarding: bool
+    persona: PersonaOut | None = None
 
     model_config = {"from_attributes": True}
 

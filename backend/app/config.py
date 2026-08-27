@@ -25,8 +25,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # --- AI Agent (رشيد) ---
-    ANTHROPIC_API_KEY: str = ""
-    AGENT_MODEL: str = "claude-sonnet-4-6"
+    GEMINI_API_KEY: str = ""
+    AGENT_MODEL: str = "gemini-2.5-flash"
     AGENT_DEFAULT_NAME: str = "رشيد"
 
     # --- CORS ---
