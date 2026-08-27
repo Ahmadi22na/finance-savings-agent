@@ -1,6 +1,8 @@
 import enum
+import uuid
 
-from sqlalchemy import String, Boolean, Enum as SAEnum
+from sqlalchemy import String, Boolean, ForeignKey, Enum as SAEnum
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.session import Base
@@ -32,8 +34,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # --- تخصيص الوكيل ---
     agent_name: Mapped[str] = mapped_column(String(50), default="رشيد")
+    persona_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("personas.id", ondelete="SET NULL"), nullable=True
+    )
+    has_completed_onboarding: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # --- العلاقات ---
+    persona: Mapped["Persona | None"] = relationship(back_populates="users")
     goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     agent_interactions: Mapped[list["AgentInteraction"]] = relationship(back_populates="user", cascade="all, delete-orphan")
