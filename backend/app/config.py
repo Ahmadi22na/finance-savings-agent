@@ -25,8 +25,12 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # --- AI Agent (رشيد) ---
+    # --- AI Agent (رشيد) ---
+    # ملاحظة: جوجل بتحدّث أسماء موديلات Gemini بوتيرة سريعة جدًا (كل بضعة أشهر)
+    # وبتوقف موديلات قديمة فجأة. لو رشيد توقف يرد بالغلط، أول شي تتأكد منه
+    # هو إذا اسم AGENT_MODEL لسا مدعوم عبر https://aistudio.google.com
     GEMINI_API_KEY: str = ""
-    AGENT_MODEL: str = "gemini-2.5-flash"
+    AGENT_MODEL: str = "gemini-3.6-flash"
     AGENT_DEFAULT_NAME: str = "رشيد"
 
     # --- CORS ---
