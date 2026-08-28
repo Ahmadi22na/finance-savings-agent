@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +7,8 @@ from app.agent.mood_engine import compute_mood_state
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentInteraction, InteractionTrigger
 from app.models.user import User
+
+logger = logging.getLogger("rasheed.agent")
 
 
 def send_message_to_agent(db: Session, user: User, message: str) -> str:
@@ -40,8 +44,8 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
     db.commit()
 
     if reply.raw_error:
-        # ما نوقف الطلب بخطأ 500 — رشيد "يحكي" حتى لو في مشكلة تقنية خلفه، بس نسجل التفاصيل
-        # بـ raw_error لأي حد يراجع الـ Logs لاحقًا (مش شي يشوفه المستخدم)
-        pass
+        # نطبعه فعليًا بالـ logs (يظهر بـ docker compose logs) — قبل هيك كان يضيع صامت
+        # ونحتفظ بالسلوك الأصلي: ما نوقف الطلب بخطأ 500، رشيد "يحكي" حتى لو في مشكلة تقنية خلفه
+        logger.error("Gemini provider error for user %s: %s", user.id, reply.raw_error)
 
     return reply.text
