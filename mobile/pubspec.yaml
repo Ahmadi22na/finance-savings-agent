@@ -1,25 +1,33 @@
-name: finance_savings_agent
-description: >
-  تطبيق إدارة مالية شخصية بتجربة Gamified — Skeleton فقط،
-  المشروع لسا بمرحلة Discovery (راجع قسم 12 بالتوثيق).
-publish_to: "none"
-
-version: 0.0.1
+name: rasheed_app
+description: "تطبيق رشيد لإدارة المصاريف والتوفير"
+publish_to: 'none'
+version: 0.1.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: '>=3.4.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.2.0
-  # المكتبات الإضافية (state management، إلخ) تُضاف لاحقًا
-  # بعد ما ينحسم شكل الـ UX الفعلي (Concept Testing)
+
+  # --- إدارة الحالة والحقن (State Management) ---
+  flutter_riverpod: ^2.6.1
+
+  # --- الاتصال بالـ Backend ---
+  dio: ^5.7.0                    # HTTP client — أقوى وأنظف من http الأساسية (interceptors, error handling)
+  flutter_secure_storage: ^9.2.2  # تخزين آمن للـ JWT tokens على الجهاز (مش SharedPreferences العادية)
+
+  # --- أدوات عامة ---
+  cupertino_icons: ^1.0.8
+  intl: ^0.19.0                   # تنسيق التواريخ والأرقام (مهم للمبالغ المالية)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/personas/

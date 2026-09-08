@@ -19,6 +19,21 @@ from app.models.goal import Goal, GoalStatus
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User
 
+
+def build_full_system_prompt(user: User, mood_state: str, mood_reason: str) -> str:
+    """
+    يجمع System Prompt الشخصية المختارة + سياق المستخدم + حالته المزاجية الحالية
+    بشكل موحّد — يُستخدم من agent_chat_service و nudge_service معًا، عشان أي
+    تعديل مستقبلي على شكل الـ Prompt (مثلاً إضافة بيانات هدف المستخدم) يصير
+    بمكان واحد بس.
+    """
+    return (
+        f"{user.persona.system_prompt}\n\n"
+        f"معلومات إضافية عن المستخدم الحالي (استخدمها بذكاء، ما تكررها حرفيًا):\n"
+        f"- اسمه: {user.name}\n"
+        f"- حالتك المزاجية الحالية تجاهه: {mood_state} — السبب: {mood_reason}"
+    )
+
 # النافذة الزمنية يلي منقارن فيها "الفترة الأخيرة" بمعدل إنفاق المستخدم المعتاد
 RECENT_WINDOW_DAYS = 7
 BASELINE_WINDOW_DAYS = 30
