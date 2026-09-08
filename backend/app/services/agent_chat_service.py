@@ -3,7 +3,7 @@ import logging
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.agent.mood_engine import compute_mood_state
+from app.agent.mood_engine import compute_mood_state, build_full_system_prompt
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentInteraction, InteractionTrigger
 from app.models.user import User
@@ -19,15 +19,7 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
         )
 
     mood = compute_mood_state(db, user)
-
-    # نبني الـ System Prompt النهائي: شخصية المستخدم المختارة + سياق حالته المزاجية الحالية
-    # + اسمه، عشان رشيد يحس "شخصي" مش عام
-    full_system_prompt = (
-        f"{user.persona.system_prompt}\n\n"
-        f"معلومات إضافية عن المستخدم الحالي (استخدمها بذكاء، ما تكررها حرفيًا):\n"
-        f"- اسمه: {user.name}\n"
-        f"- حالتك المزاجية الحالية تجاهه: {mood.state.value} — السبب: {mood.reason}"
-    )
+    full_system_prompt = build_full_system_prompt(user, mood.state.value, mood.reason)
 
     provider = get_ai_provider()
     reply = provider.generate_reply(full_system_prompt, message)
