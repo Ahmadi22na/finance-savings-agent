@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'theme/app_theme.dart';
 import 'core/api_client.dart';
+import 'core/providers.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/home_placeholder_screen.dart';
 
 void main() {
   // ProviderScope لازم يلف كل التطبيق — هو يلي بيخلي كل الـ Providers
@@ -27,58 +30,62 @@ class RasheedApp extends StatelessWidget {
           child: child!,
         );
       },
-      home: const _StartupCheckScreen(),
+      home: const _SplashScreen(),
     );
   }
 }
 
-/// شاشة انتقالية بسيطة: تتحقق هل عندنا توكن محفوظ (يعني المستخدم مسجّل دخول
-/// من قبل) أو لأ. هاي نسخة أولية فقط للتأكد إن كل الإعداد (Dio, Secure
-/// Storage, Riverpod) شغّال صح قبل ما نبني شاشات Login/Onboarding الفعلية
-/// بالجزء الجاي (بيتحول وقتها لـ go_router أو Navigator حقيقي).
-class _StartupCheckScreen extends StatefulWidget {
-  const _StartupCheckScreen();
+/// شاشة انتقالية عند فتح التطبيق: تتحقق هل عندنا توكن محفوظ، ولو عندنا
+/// تتأكد إنه لسا صالح (بجلب بيانات المستخدم فعليًا من /users/me)، وبناءً
+/// عليها توجّه المستخدم لشاشة الدخول أو للشاشة الرئيسية مباشرة.
+class _SplashScreen extends ConsumerStatefulWidget {
+  const _SplashScreen();
 
   @override
-  State<_StartupCheckScreen> createState() => _StartupCheckScreenState();
+  ConsumerState<_SplashScreen> createState() => _SplashScreenState();
 }
 
-class _StartupCheckScreenState extends State<_StartupCheckScreen> {
-  String _status = 'جاري التحقق...';
-
+class _SplashScreenState extends ConsumerState<_SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _checkSetup();
+    // WidgetsBinding.instance.addPostFrameCallback عشان نضمن إن الـ context
+    // جاهز للـ Navigation قبل ما نستخدمه (تجنّب خطأ شائع بفلاتر).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAuthAndNavigate());
   }
 
-  Future<void> _checkSetup() async {
+  Future<void> _checkAuthAndNavigate() async {
     final hasToken = await ApiClient.hasToken();
+
+    if (!hasToken) {
+      _goTo(const LoginScreen());
+      return;
+    }
+
+    try {
+      final authService = ref.read(authServiceProvider);
+      final user = await authService.getCurrentUser();
+      ref.read(currentUserProvider.notifier).state = user;
+      _goTo(const HomePlaceholderScreen());
+    } catch (_) {
+      // التوكن موجود بس مو صالح (منتهي الصلاحية مثلاً) — نرجّع المستخدم لتسجيل الدخول
+      await ApiClient.clearTokens();
+      _goTo(const LoginScreen());
+    }
+  }
+
+  void _goTo(Widget screen) {
     if (!mounted) return;
-    setState(() {
-      _status = hasToken
-          ? 'في توكن محفوظ — المستخدم مسجّل دخول من قبل'
-          : 'ما في توكن — لازم شاشة تسجيل دخول (الجزء الجاي)';
-    });
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => screen),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('رشيد',
-                  style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Text(_status, textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
     );
   }
 }
