@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/auth_controller.dart';
 import '../../core/api_client.dart';
+import '../../core/providers.dart';
 import '../../widgets/app_text_field.dart';
 import 'register_screen.dart';
+import '../onboarding/onboarding_flow_screen.dart';
 import '../home_placeholder_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -39,9 +41,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     state.whenOrNull(
       data: (_) {
+        final user = ref.read(currentUserProvider);
+        final nextScreen = (user?.hasCompletedOnboarding ?? false)
+            ? const HomePlaceholderScreen()
+            : const OnboardingFlowScreen();
         // نجح الدخول — نستبدل الشاشة كاملة (المستخدم ما يقدر يرجع لشاشة الدخول بالـ Back)
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomePlaceholderScreen()),
+          MaterialPageRoute(builder: (_) => nextScreen),
           (route) => false,
         );
       },
