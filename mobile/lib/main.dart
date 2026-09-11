@@ -6,6 +6,7 @@ import 'core/api_client.dart';
 import 'core/providers.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home_placeholder_screen.dart';
+import 'screens/onboarding/onboarding_flow_screen.dart';
 
 void main() {
   // ProviderScope لازم يلف كل التطبيق — هو يلي بيخلي كل الـ Providers
@@ -66,7 +67,9 @@ class _SplashScreenState extends ConsumerState<_SplashScreen> {
       final authService = ref.read(authServiceProvider);
       final user = await authService.getCurrentUser();
       ref.read(currentUserProvider.notifier).state = user;
-      _goTo(const HomePlaceholderScreen());
+      _goTo(user.hasCompletedOnboarding
+          ? const HomePlaceholderScreen()
+          : const OnboardingFlowScreen());
     } catch (_) {
       // التوكن موجود بس مو صالح (منتهي الصلاحية مثلاً) — نرجّع المستخدم لتسجيل الدخول
       await ApiClient.clearTokens();

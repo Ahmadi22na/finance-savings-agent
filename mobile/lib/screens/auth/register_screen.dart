@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth_controller.dart';
 import '../../core/api_client.dart';
 import '../../widgets/app_text_field.dart';
-import '../home_placeholder_screen.dart';
+import '../onboarding/onboarding_flow_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -41,10 +41,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     state.whenOrNull(
       data: (_) {
-        // بعد التسجيل، المستخدم لسا ما خلّص Onboarding — بس هلأ منروح لشاشة
-        // مؤقتة لحد ما نبني شاشات الـ Onboarding الفعلية بالجزء الجاي
+        // بعد التسجيل مباشرة، المستخدم دايمًا لسا ما خلّص Onboarding —
+        // فمنوديه على شاشات اختيار الشخصية وأول هدف مباشرة
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomePlaceholderScreen()),
+          MaterialPageRoute(builder: (_) => const OnboardingFlowScreen()),
           (route) => false,
         );
       },
