@@ -7,7 +7,7 @@ import '../../core/providers.dart';
 import '../../widgets/app_text_field.dart';
 import 'register_screen.dart';
 import '../onboarding/onboarding_flow_screen.dart';
-import '../home_placeholder_screen.dart';
+import '../dashboard/dashboard_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       data: (_) {
         final user = ref.read(currentUserProvider);
         final nextScreen = (user?.hasCompletedOnboarding ?? false)
-            ? const HomePlaceholderScreen()
+            ? const DashboardScreen()
             : const OnboardingFlowScreen();
         // نجح الدخول — نستبدل الشاشة كاملة (المستخدم ما يقدر يرجع لشاشة الدخول بالـ Back)
         Navigator.of(context).pushAndRemoveUntil(

@@ -5,7 +5,7 @@ import 'theme/app_theme.dart';
 import 'core/api_client.dart';
 import 'core/providers.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/home_placeholder_screen.dart';
+import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/onboarding/onboarding_flow_screen.dart';
 
 void main() {
@@ -68,7 +68,7 @@ class _SplashScreenState extends ConsumerState<_SplashScreen> {
       final user = await authService.getCurrentUser();
       ref.read(currentUserProvider.notifier).state = user;
       _goTo(user.hasCompletedOnboarding
-          ? const HomePlaceholderScreen()
+          ? const DashboardScreen()
           : const OnboardingFlowScreen());
     } catch (_) {
       // التوكن موجود بس مو صالح (منتهي الصلاحية مثلاً) — نرجّع المستخدم لتسجيل الدخول
