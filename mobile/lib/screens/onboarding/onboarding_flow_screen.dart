@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/api_client.dart';
 import '../../models/persona.dart';
-import '../home_placeholder_screen.dart';
+import '../dashboard/dashboard_screen.dart';
 import 'persona_select_page.dart';
 import 'income_type_page.dart';
 import 'first_goal_page.dart';
@@ -27,6 +27,16 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   final _goalAmountController = TextEditingController();
 
   static const int _totalPages = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    // بدون هالمستمعين، الشاشة ما "بتعرف" إنه المستخدم كتب شي بحقول الهدف
+    // والمبلغ، فزر "يلا نبدأ" كان يضل معطّل حتى لو الحقول معبّية صح —
+    // setState(() {}) هون بس بيخلي build() يعيد فحص _canProceed من جديد.
+    _goalTitleController.addListener(() => setState(() {}));
+    _goalAmountController.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
@@ -88,7 +98,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomePlaceholderScreen()),
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
         (route) => false,
       );
     } on ApiException catch (e) {
