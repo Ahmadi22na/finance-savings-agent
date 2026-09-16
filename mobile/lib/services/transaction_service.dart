@@ -18,4 +18,26 @@ class TransactionService {
       throw ApiException.fromDioError(e);
     }
   }
+
+  /// التسجيل السريع — يدعم المسارين سوا (نفس منطق الـ Backend بالضبط):
+  /// - وصل categoryId؟ → حفظ فوري بدون أي معالجة إضافية (مسار الأيقونات)
+  /// - ما وصل categoryId بس وصل note؟ → محرك التصنيف الذكي يحاول يخمّن
+  Future<Transaction> quickLog({
+    required double amount,
+    required String type, // 'income' أو 'expense'
+    String? categoryId,
+    String? note,
+  }) async {
+    try {
+      final response = await _apiClient.dio.post('/transactions/quick-log', data: {
+        'amount': amount,
+        'type': type,
+        if (categoryId != null) 'category_id': categoryId,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      });
+      return Transaction.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
 }
