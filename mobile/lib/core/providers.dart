@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import '../services/goal_service.dart';
 import '../services/transaction_service.dart';
+import '../services/category_service.dart';
 import '../models/user.dart';
 
 /// Provider واحد لـ ApiClient — كل الخدمات بتاخذه من هون، ما حدا بيسوي
@@ -25,6 +26,10 @@ final goalServiceProvider = Provider<GoalService>((ref) {
 
 final transactionServiceProvider = Provider<TransactionService>((ref) {
   return TransactionService(ref.watch(apiClientProvider));
+});
+
+final categoryServiceProvider = Provider<CategoryService>((ref) {
+  return CategoryService(ref.watch(apiClientProvider));
 });
 
 /// حالة المستخدم الحالي عبر كل التطبيق — أي شاشة تقدر "تسمع" لأي تغيير هون

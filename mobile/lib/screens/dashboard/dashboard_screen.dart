@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
 import '../../widgets/transaction_tile.dart';
 import '../auth/login_screen.dart';
+import '../quick_log/quick_log_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -52,12 +53,11 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      // FAB مؤقت — رح يفتح شاشة Quick-log الفعلية بالجزء الجاي من Sprint 3
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: accentColor,
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('شاشة التسجيل السريع جاية بالجزء الجاي 🚧')),
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const QuickLogScreen()),
           );
         },
         icon: const Icon(Icons.add),
