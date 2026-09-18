@@ -26,7 +26,7 @@ class GoalProgressCard extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                backgroundColor: accentColor.withOpacity(0.12),
+                backgroundColor: accentColor.withValues(alpha: 0.12),
                 child: Icon(iconForKey(goal.icon), color: accentColor, size: 20),
               ),
               const SizedBox(width: 12),
