@@ -18,7 +18,7 @@ class AuthService {
         'phone': phone,
         'password': password,
       });
-      return _handleTokenResponse(response.data);
+      return await _handleTokenResponse(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
@@ -33,7 +33,7 @@ class AuthService {
         'phone': phone,
         'password': password,
       });
-      return _handleTokenResponse(response.data);
+      return await _handleTokenResponse(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }

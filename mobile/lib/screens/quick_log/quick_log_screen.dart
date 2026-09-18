@@ -177,7 +177,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                         width: 84,
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                         decoration: BoxDecoration(
-                          color: isSelected ? accentColor.withOpacity(0.12) : Colors.grey.shade100,
+                          color: isSelected
+                              ? accentColor.withValues(alpha: 0.12)
+                              : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected ? accentColor : Colors.transparent,
@@ -263,7 +265,7 @@ class _TypeToggleButton extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.12) : Colors.grey.shade100,
+          color: isSelected ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: isSelected ? color : Colors.transparent, width: 2),
         ),
