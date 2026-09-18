@@ -9,7 +9,7 @@
 from google import genai
 from google.genai.errors import ClientError, ServerError
 
-from app.agent.providers.base import BaseAIProvider, AgentReply
+from app.agent.providers.base import BaseAIProvider, AgentReply, ConversationTurn
 from app.config import settings
 
 
@@ -17,11 +17,25 @@ class GeminiProvider(BaseAIProvider):
     def __init__(self):
         self._client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
-    def generate_reply(self, system_prompt: str, user_message: str) -> AgentReply:
+    def generate_reply(
+        self,
+        system_prompt: str,
+        user_message: str,
+        history: list[ConversationTurn] | None = None,
+    ) -> AgentReply:
         try:
+            # Gemini بيفهم المحادثة كقائمة "أدوار" (Turns) — "user" للمستخدم
+            # و"model" لرشيد. بدون هالبنية، ما عنده أي طريقة يعرف فيها شو
+            # انحكى قبل هالرسالة، حتى لو أرسلناها بنفس الـ HTTP request.
+            contents = []
+            for turn in (history or []):
+                role = "user" if turn.is_from_user else "model"
+                contents.append({"role": role, "parts": [{"text": turn.text}]})
+            contents.append({"role": "user", "parts": [{"text": user_message}]})
+
             response = self._client.models.generate_content(
                 model=settings.AGENT_MODEL,
-                contents=user_message,
+                contents=contents,
                 config={"system_instruction": system_prompt},
             )
             return AgentReply(text=response.text)
