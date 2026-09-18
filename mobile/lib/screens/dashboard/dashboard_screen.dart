@@ -9,6 +9,7 @@ import '../../widgets/goal_progress_card.dart';
 import '../../widgets/transaction_tile.dart';
 import '../auth/login_screen.dart';
 import '../quick_log/quick_log_screen.dart';
+import '../chat/chat_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -38,6 +39,14 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ChatScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
