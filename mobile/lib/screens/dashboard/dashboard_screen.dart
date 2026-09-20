@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
+import '../../core/agent_action_providers.dart';
 import '../../core/api_client.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
@@ -10,6 +11,7 @@ import '../../widgets/transaction_tile.dart';
 import '../auth/login_screen.dart';
 import '../quick_log/quick_log_screen.dart';
 import '../chat/chat_screen.dart';
+import '../suggestions/suggestions_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -19,6 +21,8 @@ class DashboardScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final goalsAsync = ref.watch(goalsListProvider);
     final transactionsAsync = ref.watch(recentTransactionsProvider);
+    final pendingActionsAsync = ref.watch(pendingActionsProvider);
+    final pendingCount = pendingActionsAsync.value?.length ?? 0;
     final accentColor =
         user?.persona != null ? PersonaColors.fromKey(user!.persona!.key) : PersonaColors.energetic;
 
@@ -39,6 +43,18 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Badge(
+              label: Text('$pendingCount'),
+              isLabelVisible: pendingCount > 0,
+              child: const Icon(Icons.lightbulb_outline),
+            ),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SuggestionsScreen()),
+              ).then((_) => ref.invalidate(pendingActionsProvider));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline),
             onPressed: () {
