@@ -15,7 +15,6 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentAction, AgentActionType, AgentActionStatus
@@ -88,8 +87,14 @@ def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
 
 
 def _apply_category_correction(db: Session, user: User, action: AgentAction) -> None:
-    transaction_id = action.payload.get("transaction_id")
-    new_category_id = action.payload.get("new_category_id")
+    # الـ payload عمود JSON، فالـ UUIDs مخزّنة فيه كنص عادي (str) —
+    # لازم نحوّلهم لـ UUID حقيقي قبل أي استعلام أو تعيين قيمة، وإلا SQLAlchemy
+    # بيطلع خطأ (بعض قواعد البيانات بتتساهل، وبعضها لأ — الصح نحوّل دايمًا).
+    try:
+        transaction_id = UUID(action.payload.get("transaction_id"))
+        new_category_id = UUID(action.payload.get("new_category_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
 
     transaction = (
         db.query(Transaction)
@@ -103,7 +108,11 @@ def _apply_category_correction(db: Session, user: User, action: AgentAction) -> 
 
 
 def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> None:
-    goal_id = action.payload.get("goal_id")
+    try:
+        goal_id = UUID(action.payload.get("goal_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
+
     amount = action.payload.get("amount")
 
     goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == user.id).first()
