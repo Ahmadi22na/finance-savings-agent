@@ -177,9 +177,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                         width: 84,
                         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
                         decoration: BoxDecoration(
-                          color: isSelected
-                              ? accentColor.withValues(alpha: 0.12)
-                              : Colors.grey.shade100,
+                          color: isSelected ? accentColor.withValues(alpha: 0.12) : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected ? accentColor : Colors.transparent,
