@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import String, Boolean, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, Boolean, ForeignKey, Enum as SAEnum, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,12 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         SAEnum(IncomeType, name="income_type_enum"), default=IncomeType.VARIABLE
     )
     avg_monthly_income_estimate: Mapped[float | None] = mapped_column(nullable=True)
+
+    # تقدير عام لمصاريف المستخدم الأساسية شهريًا (أكل، مواصلات...) — يُملأ إما
+    # من إجابة المستخدم المباشرة لرشيد بالمحادثة، أو لاحقًا من تحليل تاريخ
+    # معاملاته الفعلي. معلومة عامة عن المستخدم (مش خاصة بهدف معيّن)، فأي هدف
+    # جديد بيستفيد منها تلقائيًا بدل ما رشيد يسأل من الصفر كل مرة.
+    estimated_monthly_essentials: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     # --- تخصيص الوكيل ---
     agent_name: Mapped[str] = mapped_column(String(50), default="رشيد")
