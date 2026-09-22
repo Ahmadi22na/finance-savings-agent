@@ -12,6 +12,7 @@ import '../auth/login_screen.dart';
 import '../quick_log/quick_log_screen.dart';
 import '../chat/chat_screen.dart';
 import '../suggestions/suggestions_screen.dart';
+import '../goal_path/goal_path_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -119,7 +120,12 @@ class DashboardScreen extends ConsumerWidget {
                   children: goals
                       .map((goal) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: GoalProgressCard(goal: goal, accentColor: accentColor),
+                            child: GestureDetector(
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => GoalPathScreen(goal: goal)),
+                              ),
+                              child: GoalProgressCard(goal: goal, accentColor: accentColor),
+                            ),
                           ))
                       .toList(),
                 );
