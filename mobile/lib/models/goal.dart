@@ -8,6 +8,7 @@ class Goal {
   final DateTime? deadline;
   final String status; // active | achieved | abandoned
   final double progressPercentage;
+  final DateTime createdAt;
 
   Goal({
     required this.id,
@@ -18,6 +19,7 @@ class Goal {
     required this.deadline,
     required this.status,
     required this.progressPercentage,
+    required this.createdAt,
   });
 
   factory Goal.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,8 @@ class Goal {
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline'] as String) : null,
       status: json['status'] as String,
       progressPercentage: (json['progress_percentage'] as num).toDouble(),
+      createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
 }
+
