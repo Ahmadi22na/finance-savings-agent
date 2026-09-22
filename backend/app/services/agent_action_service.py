@@ -65,6 +65,27 @@ def reject_action(db: Session, user: User, action_id: UUID) -> AgentAction:
     return action
 
 
+def create_pending_action(
+    db: Session, user: User, action_type: str, payload: dict, reasoning: str | None = None
+) -> AgentAction:
+    """
+    دالة مشتركة لإنشاء اقتراح PENDING جديد — تُستخدم من هالملف نفسه
+    (اقتراحات دورية) ومن agent_chat_service (اقتراحات مبنية على محادثة حرة
+    مع رشيد، مثل اقتراح هدف كامل بـ Sprint 5). مكان واحد لإنشاء أي اقتراح
+    بغض النظر عن مصدره.
+    """
+    action = AgentAction(
+        user_id=user.id,
+        action_type=AgentActionType(action_type),
+        payload=payload,
+        reasoning=reasoning,
+    )
+    db.add(action)
+    db.commit()
+    db.refresh(action)
+    return action
+
+
 def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
     """
     ينفّذ الاقتراح فعليًا على قاعدة البيانات — هاي الدالة الوحيدة بكل
@@ -77,6 +98,8 @@ def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
         _apply_category_correction(db, user, action)
     elif action.action_type == AgentActionType.SUGGEST_GOAL_CONTRIBUTION:
         _apply_goal_contribution(db, user, action)
+    elif action.action_type == AgentActionType.SUGGEST_GOAL_CREATION:
+        _apply_goal_creation(db, user, action)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="نوع اقتراح غير مدعوم")
 
@@ -122,6 +145,23 @@ def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> No
     goal.current_amount = float(goal.current_amount) + float(amount)
     if float(goal.current_amount) >= float(goal.target_amount):
         goal.status = GoalStatus.ACHIEVED
+
+
+def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
+    title = action.payload.get("title")
+    target_amount = action.payload.get("target_amount")
+
+    if not title or not isinstance(target_amount, (int, float)) or target_amount <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
+
+    goal = Goal(
+        user_id=user.id,
+        title=title,
+        target_amount=target_amount,
+        # current_amount تبدأ 0 افتراضيًا — الهدف هون تخطيطي، المستخدم بيبلش
+        # يسجّل تقدمه فيه لاحقًا عبر التسجيل السريع أو اقتراحات المساهمة
+    )
+    db.add(goal)
 
 
 # ---------- توليد اقتراحات جديدة ----------
