@@ -9,7 +9,6 @@ from app.models.mixins import UUIDPrimaryKeyMixin, TimestampMixin
 
 
 class InteractionTrigger(str, enum.Enum):
-    """كيف بلش هذا التفاعل — يفرّق بين رسالة رشيد الاستباقية ورد فعله على المستخدم."""
     NUDGE = "nudge"
     MONTHLY_INSIGHT = "monthly_insight"
     USER_CHAT = "user_chat"
@@ -34,10 +33,11 @@ class AgentActionType(str, enum.Enum):
     SUGGEST_CATEGORY_CORRECTION = "suggest_category_correction"
     SUGGEST_BUDGET_ADJUSTMENT = "suggest_budget_adjustment"
     SUGGEST_GOAL_CONTRIBUTION = "suggest_goal_contribution"
-    # جديد بـ Sprint 5: رشيد يقترح هدف كامل (عنوان + مبلغ + تفصيل) بناءً على
-    # وصف حر من المستخدم بالمحادثة (مثال: عمال المياومة يلي يعرفوا مصاريفهم
-    # القادمة بس ما عندهم رقم هدف محدد بعد).
     SUGGEST_GOAL_CREATION = "suggest_goal_creation"
+    # جديد: رشيد يقترح تسجيل دخل ذكره المستخدم بالمحادثة الحرة (مثال:
+    # "اشتغلت يوم واجاني 25 دينار") — بدل ما تضيع المعلومة أو تُفهم غلط
+    # كوصف هدف جديد.
+    SUGGEST_INCOME_LOG = "suggest_income_log"
 
 
 class AgentActionStatus(str, enum.Enum):

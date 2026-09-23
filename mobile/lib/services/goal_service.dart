@@ -43,4 +43,12 @@ class GoalService {
       throw ApiException.fromDioError(e);
     }
   }
+
+  Future<void> deleteGoal(String goalId) async {
+    try {
+      await _apiClient.dio.delete('/goals/$goalId');
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
 }

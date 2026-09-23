@@ -49,10 +49,20 @@ def contribute_to_goal(db: Session, user: User, goal_id: uuid.UUID, data: GoalCo
 
     goal.current_amount = float(goal.current_amount) + data.amount
 
-    # وصل أو تجاوز الهدف بالكامل → نعلّمه منجز تلقائيًا (رشيد رح يحتفل بهاي اللحظة لاحقًا بـ Sprint القادم)
     if float(goal.current_amount) >= float(goal.target_amount):
         goal.status = GoalStatus.ACHIEVED
 
     db.commit()
     db.refresh(goal)
     return goal
+
+
+def delete_goal(db: Session, user: User, goal_id: uuid.UUID) -> None:
+    """
+    حذف نهائي للهدف. ما بيلمس المعاملات المالية المرتبطة (Transactions) —
+    هاي بتضل موجودة بسجل المستخدم، بس بتفقد ربطها بأي هدف (الأهداف والمعاملات
+    مستقلتين أصلاً بالتصميم الحالي).
+    """
+    goal = get_goal_or_404(db, user, goal_id)
+    db.delete(goal)
+    db.commit()

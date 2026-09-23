@@ -17,33 +17,38 @@ logger = logging.getLogger("rasheed.agent")
 
 CHAT_HISTORY_LIMIT = 20
 
-# --- بروتوكول الاقتراحات المضمّنة بالمحادثة (Sprint 5) ---
-# رشيد ممكن "يضمّن" داخل ردّه كتلة JSON محاطة بعلامات خاصة، بدل ما نبني
-# طبقة Function Calling كاملة من الصفر. الكتلة بتُستخرج وتُحذف من النص
-# قبل ما يوصل الرد للمستخدم — هو بس بيشوف النص الطبيعي.
 GOAL_PROPOSAL_PATTERN = re.compile(r"<<<GOAL_PROPOSAL>>>(.*?)<<<END>>>", re.DOTALL)
 ESSENTIALS_UPDATE_PATTERN = re.compile(r"<<<ESSENTIALS_UPDATE>>>(.*?)<<<END>>>", re.DOTALL)
+# جديد: بروتوكول تسجيل دخل ذكره المستخدم بالمحادثة (بدل ما ينفهم غلط كهدف جديد)
+INCOME_LOG_PATTERN = re.compile(r"<<<INCOME_LOG_PROPOSAL>>>(.*?)<<<END>>>", re.DOTALL)
 
 GOAL_CREATION_PROTOCOL_INSTRUCTIONS = """
-قدرة إضافية عندك بهاي المحادثة: تقدر تقترح إنشاء هدف مالي كامل للمستخدم
-لو وصف لك مصاريف/التزامات قادمة يعرفها بشكل واضح (حتى لو ما قال رقم هدف
-مباشر) — مثال: "بدي 200 دينار ملابس شتوية، وراح احلق 5 مرات (30 دينار)،
-واشتراك جيم 60 دينار خلال 3 شهور".
+قدرة إضافية عندك بهاي المحادثة: تقدر تقترح إنشاء هدف مالي كامل، أو تسجيل
+دخل استلمه المستخدم فعليًا. **الفرق بينهم مهم جدًا ولازم تميّزه صح:**
 
-خطوات لازم تتبعها بهيك حالة:
+--- الحالة 1: المستخدم بيوصف مصاريف/التزامات قادمة (هدف مستقبلي) ---
+مثال: "بدي 200 دينار ملابس شتوية، وراح احلق 5 مرات (30 دينار)، واشتراك جيم
+60 دينار خلال 3 شهور". هون بتبني اقتراح هدف:
 1. اجمع كل الأرقام الواضحة يلي ذكرها المستخدم.
-2. المصاريف الأساسية (أكل، مواصلات...) غالبًا ما بينذكروا صراحة — استخدم
-   المعلومة المعطاة لك بالسياق (محفوظة، من تاريخه، أو غير متوفرة).
-   - لو "غير متوفرة": اسأل المستخدم مباشرة بسؤال طبيعي بسيط، وما تكمل
-     الاقتراح لحد ما يجاوبك. لما يجاوبك برقم واضح، ضمّن بنفس الرد كتلة:
-     <<<ESSENTIALS_UPDATE>>>{"monthly_estimate": <رقم>}<<<END>>>
-     مع رد طبيعي عادي حواليها (المستخدم ما بيشوف هاي الكتلة، بتنحذف تلقائيًا).
-3. لما يصير عندك كل الأرقام الكافية لبناء الهدف، ضمّن بنفس ردّك كتلة:
-   <<<GOAL_PROPOSAL>>>{"title": "عنوان قصير للهدف", "target_amount": <المجموع الكلي كرقم>, "breakdown": [{"label": "...", "amount": <رقم>}, ...]}<<<END>>>
-   مع رد طبيعي تشرح فيه للمستخدم إنك جهّزت اقتراح هدف وينتظر موافقته
-   (بدون ما تذكر كلمة "JSON" أو تفاصيل تقنية له إطلاقًا).
-4. لا تستخدم هالكتل إلا لما تكون فعليًا واثق من الأرقام — لو المستخدم
-   بس بيسأل سؤال عام أو بيحكي عادي، جاوب بشكل طبيعي بدون أي كتلة.
+2. لو احتجت مصاريف أساسية غير مذكورة، استخدم السياق المالي المعطى لك، أو
+   اسأل المستخدم مباشرة لو "غير متوفر" (وعند إجابته ضمّن حينها كتلة
+   <<<ESSENTIALS_UPDATE>>>{"monthly_estimate": <رقم>}<<<END>>>).
+3. لما يصير عندك أرقام كافية، ضمّن بالرد كتلة:
+   <<<GOAL_PROPOSAL>>>{"title": "...", "target_amount": <رقم>, "breakdown": [...]}<<<END>>>
+
+--- الحالة 2: المستخدم بيخبرك إنه استلم مبلغ فعليًا (دخل حقيقي حصل) ---
+مثال: "اشتغلت اليوم واجاني 25 دينار" أو "استلمت راتبي 300 دينار".
+**هاي مو هدف جديد إطلاقًا — هاي معاملة دخل لازم تُسجَّل.** ضمّن بالرد كتلة:
+<<<INCOME_LOG_PROPOSAL>>>{"amount": <رقم>, "note": "وصف قصير مبني على كلام المستخدم"}<<<END>>>
+
+**قاعدة صارمة: لا تستخدم <<<GOAL_PROPOSAL>>> أبدًا لمجرد إنه المستخدم ذكر
+رقم مرتبط بدخل استلمه أو راح يستلمه — هاي حالة تسجيل دخل بس، مش هدف.**
+لو مو واضح إذا الكلام عن دخل استلمه أو مصروف مستقبلي يخطط له، اسأله
+مباشرة بدل ما تخمّن وتستخدم أي كتلة.
+
+بكل الحالات: الرد الطبيعي المرافق للكتلة لازم يشرح للمستخدم بلغة بسيطة
+شو جهزت له (بدون ذكر كلمة JSON أو أي تفاصيل تقنية)، وما تستخدم أي كتلة
+إلا لما تكون واثق فعليًا من الأرقام والنية.
 """.strip()
 
 
@@ -63,7 +68,6 @@ def _get_recent_history(db: Session, user: User) -> list[ConversationTurn]:
 
 
 def _extract_and_strip_block(pattern: re.Pattern, text: str) -> tuple[dict | None, str]:
-    """يدوّر عن كتلة البروتوكول، يحاول يفكّها كـ JSON، ويرجّع النص بعد ما يشيلها."""
     match = pattern.search(text)
     if match is None:
         return None, text
@@ -81,8 +85,6 @@ def _handle_essentials_update(db: Session, user: User, data: dict) -> None:
     monthly_estimate = data.get("monthly_estimate")
     if not isinstance(monthly_estimate, (int, float)) or monthly_estimate <= 0:
         return
-    # مجرد تسجيل معلومة قالها المستخدم عن نفسه — مش قرار مالي، فما بيحتاج
-    # نفس بوابة الموافقة الصريحة يلي الاقتراحات المالية الفعلية بتحتاجها
     user.estimated_monthly_essentials = monthly_estimate
     db.commit()
 
@@ -100,6 +102,22 @@ def _handle_goal_proposal(db: Session, user: User, data: dict, reasoning: str) -
         db, user,
         action_type="suggest_goal_creation",
         payload={"title": title, "target_amount": float(target_amount), "breakdown": breakdown},
+        reasoning=reasoning,
+    )
+
+
+def _handle_income_log_proposal(db: Session, user: User, data: dict, reasoning: str) -> None:
+    amount = data.get("amount")
+    note = data.get("note", "")
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        logger.warning("Incomplete income log proposal from AI, ignoring: %r", data)
+        return
+
+    agent_action_service.create_pending_action(
+        db, user,
+        action_type="suggest_income_log",
+        payload={"amount": float(amount), "note": note},
         reasoning=reasoning,
     )
 
@@ -134,6 +152,10 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
         essentials_data, raw_reply_text = _extract_and_strip_block(ESSENTIALS_UPDATE_PATTERN, raw_reply_text)
         if essentials_data:
             _handle_essentials_update(db, user, essentials_data)
+
+        income_data, raw_reply_text = _extract_and_strip_block(INCOME_LOG_PATTERN, raw_reply_text)
+        if income_data:
+            _handle_income_log_proposal(db, user, income_data, reasoning=raw_reply_text[:300])
 
         goal_data, raw_reply_text = _extract_and_strip_block(GOAL_PROPOSAL_PATTERN, raw_reply_text)
         if goal_data:
