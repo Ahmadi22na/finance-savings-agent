@@ -11,6 +11,9 @@ class GoalCreate(BaseModel):
     icon: str = "target"
     target_amount: float = Field(gt=0)
     deadline: date | None = None
+    # "مصروف ثابت شهري" — نفس الخطة العادية بالضبط، بس بتتصفّر تلقائيًا كل
+    # شهر لما توصل لهدفها بدل ما تضل مكتملة للأبد.
+    is_recurring: bool = False
 
 
 class GoalContribution(BaseModel):
@@ -34,6 +37,7 @@ class GoalOut(BaseModel):
     target_amount: float
     current_amount: float
     priority: int
+    is_recurring: bool
     deadline: date | None
     status: GoalStatus
     progress_percentage: float

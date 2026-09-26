@@ -21,12 +21,14 @@ class GoalService {
     required String title,
     required double targetAmount,
     DateTime? deadline,
+    bool isRecurring = false,
   }) async {
     try {
       final response = await _apiClient.dio.post('/goals', data: {
         'title': title,
         'target_amount': targetAmount,
         if (deadline != null) 'deadline': deadline.toIso8601String().split('T').first,
+        'is_recurring': isRecurring,
       });
       return Goal.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

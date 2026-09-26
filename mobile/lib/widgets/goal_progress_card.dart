@@ -31,8 +31,37 @@ class GoalProgressCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(goal.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(goal.title,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (goal.isRecurring) ...[
+                      const SizedBox(width: 6),
+                      // شارة "مصروف ثابت شهري" — نفس كارت الخطة العادية بالضبط،
+                      // بس هاي الشارة توضح إنه بيتصفّر تلقائيًا كل شهر.
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.autorenew, size: 11, color: accentColor),
+                            const SizedBox(width: 3),
+                            Text('شهري',
+                                style: TextStyle(
+                                    fontSize: 10, color: accentColor, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               if (isAchieved)
                 const Icon(Icons.celebration, color: Colors.amber)
