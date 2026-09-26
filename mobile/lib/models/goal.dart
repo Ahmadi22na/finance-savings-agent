@@ -5,6 +5,8 @@ class Goal {
   final String icon;
   final double targetAmount;
   final double currentAmount;
+  final int priority; // رقم أصغر = أولوية أعلى — يحدد ترتيب السحب بالداشبورد
+  final bool isRecurring; // "مصروف ثابت شهري" — بيتصفّر تلقائيًا كل شهر
   final DateTime? deadline;
   final String status; // active | achieved | abandoned
   final double progressPercentage;
@@ -16,6 +18,8 @@ class Goal {
     required this.icon,
     required this.targetAmount,
     required this.currentAmount,
+    required this.priority,
+    required this.isRecurring,
     required this.deadline,
     required this.status,
     required this.progressPercentage,
@@ -29,6 +33,8 @@ class Goal {
       icon: json['icon'] as String,
       targetAmount: (json['target_amount'] as num).toDouble(),
       currentAmount: (json['current_amount'] as num).toDouble(),
+      priority: (json['priority'] as num?)?.toInt() ?? 0,
+      isRecurring: json['is_recurring'] as bool? ?? false,
       deadline: json['deadline'] != null ? DateTime.parse(json['deadline'] as String) : null,
       status: json['status'] as String,
       progressPercentage: (json['progress_percentage'] as num).toDouble(),

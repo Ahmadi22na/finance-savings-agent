@@ -27,6 +27,20 @@ class Goal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     current_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
 
+    # ترتيب الأولوية بين خطط نفس المستخدم — رقم أصغر = أولوية أعلى.
+    # ما بنستخدم created_at للترتيب لأنه المستخدم لازم يقدر يعيد الترتيب يدويًا
+    # (سحب وإفلات بالموبايل) بدون ما نغيّر تاريخ الإنشاء الحقيقي.
+    priority: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
+
+    # "مصروف ثابت شهري" (زي إيجار، اشتراك) هو نفس جدول الخطط بالضبط — الفرق
+    # الوحيد هو هالعلم. لما يكتمل (current_amount >= target_amount)، بدل ما
+    # يضل ACHIEVED للأبد، بيرجع يتصفّر تلقائيًا أول ما يبلش شهر جديد.
+    is_recurring: Mapped[bool] = mapped_column(default=False, server_default="false", nullable=False)
+    # آخر شهر (بصيغة "YYYY-MM") انفحصت/انصفّرت فيه هاي الخطة — تستخدم بس
+    # لخطط is_recurring، لتطبيق Lazy Reset بدون الحاجة لمهمة خلفية دايمة
+    # الاشتغال (Cron). None يعني لسا ما انفحصت أو مش recurring أصلاً.
+    last_reset_month: Mapped[str | None] = mapped_column(String(7), nullable=True)
+
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[GoalStatus] = mapped_column(
         SAEnum(GoalStatus, name="goal_status_enum"), default=GoalStatus.ACTIVE

@@ -5,6 +5,7 @@ import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../core/agent_action_providers.dart';
 import '../../core/api_client.dart';
+import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
 import '../../widgets/transaction_tile.dart';
@@ -20,7 +21,6 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
-    final goalsAsync = ref.watch(goalsListProvider);
     final transactionsAsync = ref.watch(recentTransactionsProvider);
     final pendingActionsAsync = ref.watch(pendingActionsProvider);
     final pendingCount = pendingActionsAsync.value?.length ?? 0;
@@ -100,37 +100,13 @@ class DashboardScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           children: [
             const Text('أهدافك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            goalsAsync.when(
-              loading: () => const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (error, _) => Text('ما قدرنا نجيب أهدافك: $error'),
-              data: (goals) {
-                if (goals.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('ما عندك أهداف بعد', style: TextStyle(color: Colors.black54)),
-                  );
-                }
-                return Column(
-                  children: goals
-                      .map((goal) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: GestureDetector(
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => GoalPathScreen(goal: goal)),
-                              ),
-                              child: GoalProgressCard(goal: goal, accentColor: accentColor),
-                            ),
-                          ))
-                      .toList(),
-                );
-              },
+            const SizedBox(height: 4),
+            const Text(
+              'اسحب من ⠿ لترتيب أولوياتك',
+              style: TextStyle(fontSize: 12, color: Colors.black45),
             ),
+            const SizedBox(height: 12),
+            _GoalsSection(accentColor: accentColor),
             const SizedBox(height: 28),
             const Text('آخر المعاملات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -160,6 +136,140 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// قسم الأهداف بالداشبورد — الخطط النشطة قابلة للسحب لإعادة ترتيب أولويتها،
+/// والخطط المنجزة/المتروكة تُعرض بعدها بدون إمكانية سحب (أولويتها غير مهمة).
+///
+/// السحب متفائل (Optimistic): بيحدّث الترتيب محليًا فورًا، وبالخلفية بيبعت
+/// الترتيب الجديد للسيرفر. لو السيرفر رفض لأي سبب، منرجع نجيب الترتيب
+/// الحقيقي منه (invalidate) بدل ما نسيب الشاشة تعرض شي مش متزامن فعليًا.
+class _GoalsSection extends ConsumerStatefulWidget {
+  final Color accentColor;
+  const _GoalsSection({required this.accentColor});
+
+  @override
+  ConsumerState<_GoalsSection> createState() => _GoalsSectionState();
+}
+
+class _GoalsSectionState extends ConsumerState<_GoalsSection> {
+  List<Goal>? _localActiveOrder;
+
+  // قبل: كنا نقارن IDs بس (كمجموعة، بدون ترتيب ولا محتوى) — هيك أي تغيير
+  // حقيقي بخطة موجودة أصلاً (توزيع دخل جزئي عليها مثلاً: current_amount
+  // بيتغيّر بس الخطة تضل نشطة، نفس مجموعة الـ IDs بالظبط) كان يُقرأ خطأ
+  // كـ"ولا شي تغيّر" فنعرض النسخة المحلية القديمة المخزّنة، بينما الباكيند
+  // فعليًا حدّث القيمة. لازم نقارن المحتوى الفعلي (والترتيب) مش بس الهوية.
+  bool _matchesServer(List<Goal> local, List<Goal> server) {
+    if (local.length != server.length) return false;
+    for (var i = 0; i < local.length; i++) {
+      final a = local[i];
+      final b = server[i];
+      if (a.id != b.id ||
+          a.currentAmount != b.currentAmount ||
+          a.targetAmount != b.targetAmount ||
+          a.priority != b.priority ||
+          a.isRecurring != b.isRecurring) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goalsAsync = ref.watch(goalsListProvider);
+
+    return goalsAsync.when(
+      loading: () => const Center(
+        child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => Text('ما قدرنا نجيب أهدافك: $error'),
+      data: (goals) {
+        if (goals.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Text('ما عندك أهداف بعد', style: TextStyle(color: Colors.black54)),
+          );
+        }
+
+        final serverActive = goals.where((g) => g.status == 'active').toList();
+        final others = goals.where((g) => g.status != 'active').toList();
+
+        // نحدّث النسخة المحلية بس لو محتوى الخطط النشطة (أو ترتيبها) تغيّر
+        // فعليًا عن آخر نسخة عندنا — مش بس مجموعة الـ IDs. هيك أي بيانات
+        // حقيقية جاية من السيرفر (تقدم، أولوية، ...) دايمًا بتنعكس فورًا،
+        // وبنفس الوقت ما منمسح سحب لسا ما وصل رد تأكيده من السيرفر.
+        if (_localActiveOrder == null || !_matchesServer(_localActiveOrder!, serverActive)) {
+          _localActiveOrder = serverActive;
+        }
+        final activeGoals = _localActiveOrder!;
+
+        return Column(
+          children: [
+            if (activeGoals.isNotEmpty)
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: activeGoals.length,
+                // onReorderItem بدل onReorder المهجورة — هاي بتصحح newIndex
+                // تلقائيًا (مش محتاجين نعدلها يدويًا زي قبل).
+                onReorderItem: (oldIndex, newIndex) {
+                  setState(() {
+                    final moved = activeGoals.removeAt(oldIndex);
+                    activeGoals.insert(newIndex, moved);
+                  });
+                  // catchError لازم يرجّع نفس نوع الـ Future (List<Goal>)، فمنرجّع
+                  // لستة فاضية بحالة الفشل — القيمة المرجعة هون مش مهمة أصلاً،
+                  // لأن whenComplete جاي بعدها رح يجيب الترتيب الحقيقي من السيرفر.
+                  ref
+                      .read(goalServiceProvider)
+                      .reorderGoals(activeGoals.map((g) => g.id).toList())
+                      .catchError((_) => <Goal>[])
+                      .whenComplete(() => ref.invalidate(goalsListProvider));
+                },
+                itemBuilder: (context, index) {
+                  final goal = activeGoals[index];
+                  return Padding(
+                    key: ValueKey(goal.id),
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 6),
+                            child: Icon(Icons.drag_indicator, color: Colors.black38),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => GoalPathScreen(goal: goal)),
+                            ),
+                            child: GoalProgressCard(goal: goal, accentColor: widget.accentColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ...others.map((goal) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => GoalPathScreen(goal: goal)),
+                    ),
+                    child: GoalProgressCard(goal: goal, accentColor: widget.accentColor),
+                  ),
+                )),
+          ],
+        );
+      },
     );
   }
 }
