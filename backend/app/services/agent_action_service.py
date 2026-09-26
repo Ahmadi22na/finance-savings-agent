@@ -22,6 +22,7 @@ from app.models.transaction import Transaction, TransactionType, TransactionSour
 from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
+from app.services import goal_service
 
 logger = logging.getLogger("rasheed.agent")
 
@@ -152,6 +153,7 @@ def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> No
 def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
     title = action.payload.get("title")
     target_amount = action.payload.get("target_amount")
+    is_recurring = bool(action.payload.get("is_recurring", False))
 
     if not title or not isinstance(target_amount, (int, float)) or target_amount <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
@@ -160,6 +162,11 @@ def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
         user_id=user.id,
         title=title,
         target_amount=target_amount,
+        # priority: نفس منطق الإنشاء اليدوي بالضبط — آخر الترتيب، مش 0 دايمًا،
+        # عشان ما تتصادم كل الأهداف الجاية من الشات بنفس الأولوية قبل أول ترتيب يدوي.
+        priority=goal_service._next_priority_for_user(db, user),
+        is_recurring=is_recurring,
+        last_reset_month=goal_service._current_month_key() if is_recurring else None,
         # current_amount تبدأ 0 افتراضيًا — الهدف هون تخطيطي، المستخدم بيبلش
         # يسجّل تقدمه فيه لاحقًا عبر التسجيل السريع أو اقتراحات المساهمة
     )

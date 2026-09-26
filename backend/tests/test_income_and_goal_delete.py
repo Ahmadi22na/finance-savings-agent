@@ -1,4 +1,6 @@
 """اختبارات: تسجيل الدخل عبر المحادثة، وحذف الأهداف."""
+import uuid
+
 import pytest
 
 from app.agent.providers.base import AgentReply
@@ -253,3 +255,106 @@ def test_reorder_rejects_goal_belonging_to_another_user(client, db_session):
         "/api/v1/goals/reorder", headers=headers2, json={"ordered_goal_ids": [goal1["id"]]}
     )
     assert response.status_code == 400
+
+
+# ---------- المصاريف الثابتة الشهرية (is_recurring + Lazy Reset) ----------
+
+def test_recurring_goal_created_with_current_month_marked(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010014")
+    response = client.post("/api/v1/goals", headers=headers, json={
+        "title": "إيجار", "target_amount": 150, "is_recurring": True,
+    })
+    assert response.status_code == 201
+    assert response.json()["is_recurring"] is True
+
+
+def test_recurring_goal_achieved_this_month_stays_achieved(client, db_session):
+    """لسا بنفس الشهر يلي اكتملت فيه — لازم تضل ACHIEVED، ما تنصفر قبل الأوان."""
+    headers, user = register_with_persona(client, db_session, "0790010015")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "اشتراك", "target_amount": 20, "is_recurring": True,
+    }).json()
+
+    client.post(f"/api/v1/goals/{goal['id']}/contribute", headers=headers, json={"amount": 20})
+
+    listing = client.get("/api/v1/goals", headers=headers).json()
+    updated = next(g for g in listing if g["id"] == goal["id"])
+    assert updated["status"] == "achieved"
+    assert updated["current_amount"] == 20.0
+
+
+def test_recurring_goal_resets_when_month_changes(client, db_session, monkeypatch):
+    """
+    هاد الاختبار الأساسي لكل ميزة الـ Lazy Reset: نحاكي "مرور شهر" بتزييف
+    last_reset_month لشهر سابق يدويًا (بدل ما ننتظر تقويم حقيقي)، وبعدين
+    نتأكد إنه أول قراءة بعدها بترجّع الخطة نشطة بـ 0 تلقائيًا.
+    """
+    headers, user = register_with_persona(client, db_session, "0790010016")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "اشتراك", "target_amount": 20, "is_recurring": True,
+    }).json()
+    client.post(f"/api/v1/goals/{goal['id']}/contribute", headers=headers, json={"amount": 20})
+
+    from app.models.goal import Goal, GoalStatus
+    db_goal = db_session.query(Goal).filter(Goal.id == uuid.UUID(goal["id"])).first()
+    assert db_goal.status == GoalStatus.ACHIEVED
+    db_goal.last_reset_month = "2000-01"  # شهر بعيد بالماضي — أكيد مختلف عن الحالي
+    db_session.commit()
+
+    listing = client.get("/api/v1/goals", headers=headers).json()
+    reset_goal = next(g for g in listing if g["id"] == goal["id"])
+    assert reset_goal["status"] == "active"
+    assert reset_goal["current_amount"] == 0.0
+
+
+def test_non_recurring_goal_never_auto_resets(client, db_session):
+    """خطة عادية (مش is_recurring) لازم تضل ACHIEVED للأبد، حتى لو الشهر تغيّر."""
+    headers, user = register_with_persona(client, db_session, "0790010017")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "هدف عادي", "target_amount": 20,
+    }).json()
+    client.post(f"/api/v1/goals/{goal['id']}/contribute", headers=headers, json={"amount": 20})
+
+    from app.models.goal import Goal
+    db_goal = db_session.query(Goal).filter(Goal.id == uuid.UUID(goal["id"])).first()
+    db_goal.last_reset_month = "2000-01"  # حتى لو انزرعت هاي القيمة صدفة، ما لازم تأثر
+    db_session.commit()
+
+    listing = client.get("/api/v1/goals", headers=headers).json()
+    unchanged = next(g for g in listing if g["id"] == goal["id"])
+    assert unchanged["status"] == "achieved"
+    assert unchanged["current_amount"] == 20.0
+
+
+def test_chat_goal_proposal_with_is_recurring_creates_recurring_goal(
+    client, db_session, monkeypatch
+):
+    """المسار الكامل: رشيد يكتشف من كلام المستخدم إنه التزام شهري متكرر
+    (مش مصروف لمرة وحدة)، ويضمّن is_recurring:true بالاقتراح — وبعد التأكيد
+    لازم تنطلع خطة حقيقية is_recurring=True فعليًا."""
+    headers, user = register_with_persona(client, db_session, "0790010018")
+    reply_text = (
+        'ظبطتلك! <<<GOAL_PROPOSAL>>>{"title": "إيجار البيت", "target_amount": 150, '
+        '"breakdown": [], "is_recurring": true}<<<END>>>'
+    )
+    fake = FakeReplyProvider(reply_text)
+    patch_provider(monkeypatch, fake)
+
+    client.post("/api/v1/agent/chat", headers=headers, json={
+        "message": "بدي أخصص لإيجار البيت كل شهر 150 دينار",
+    })
+
+    pending = agent_action_service.list_pending_actions(db_session, user)
+    action = next(a for a in pending if a.action_type.value == "suggest_goal_creation")
+    assert action.payload["is_recurring"] is True
+
+    confirm_response = client.post(
+        f"/api/v1/agent/actions/{action.id}/confirm", headers=headers
+    )
+    assert confirm_response.status_code == 200
+
+    from app.models.goal import Goal
+    new_goal = db_session.query(Goal).filter(Goal.title == "إيجار البيت").first()
+    assert new_goal is not None
+    assert new_goal.is_recurring is True
+    assert new_goal.last_reset_month is not None
