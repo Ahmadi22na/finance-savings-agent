@@ -7,6 +7,7 @@ import '../../core/dashboard_providers.dart';
 import '../../core/api_client.dart';
 import '../../models/agent_action.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/income_allocation_sheet.dart';
 
 class SuggestionsScreen extends ConsumerStatefulWidget {
   const SuggestionsScreen({super.key});
@@ -50,6 +51,22 @@ class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
         // التطبيق الفعلي ممكن يغيّر أهداف أو معاملات — نحدّث الـ Dashboard تلقائيًا
         ref.invalidate(goalsListProvider);
         ref.invalidate(recentTransactionsProvider);
+
+        // اقتراح دخل اتأكد؟ نفس القرار المتفق عليه — نسأل المستخدم صراحة
+        // وين بدو يحط هالدخل، بغض النظر إنه جاي من الشات مش من التسجيل
+        // السريع. الـ confirm response ما فيه الـ Transaction نفسها، فنجيب
+        // آخر معاملة (هي بالضبط يلي بس انخلقت من التأكيد).
+        if (action.actionType == 'suggest_income_log' && mounted) {
+          try {
+            final transactions =
+                await ref.read(transactionServiceProvider).listTransactions(limit: 1);
+            if (transactions.isNotEmpty && mounted) {
+              await maybePromptIncomeAllocation(context, ref, transactions.first);
+            }
+          } catch (_) {
+            // مش حرج — المستخدم يقدر يوزع لاحقًا لو حبينا نضيف شاشة لهيك مستقبلًا
+          }
+        }
       } else {
         await agentService.rejectAction(action.id);
       }

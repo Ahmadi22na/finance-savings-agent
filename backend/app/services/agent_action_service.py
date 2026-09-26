@@ -18,10 +18,11 @@ from sqlalchemy.orm import Session
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentAction, AgentActionType, AgentActionStatus
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionType, TransactionSource
 from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
+from app.services import goal_service
 
 logger = logging.getLogger("rasheed.agent")
 
@@ -65,6 +66,9 @@ def reject_action(db: Session, user: User, action_id: UUID) -> AgentAction:
     return action
 
 
+DEDUP_WINDOW_MINUTES = 5  # نافذة منع التكرار — راجع الملاحظة بـ create_pending_action
+
+
 def create_pending_action(
     db: Session, user: User, action_type: str, payload: dict, reasoning: str | None = None
 ) -> AgentAction:
@@ -73,10 +77,38 @@ def create_pending_action(
     (اقتراحات دورية) ومن agent_chat_service (اقتراحات مبنية على محادثة حرة
     مع رشيد، مثل اقتراح هدف كامل بـ Sprint 5). مكان واحد لإنشاء أي اقتراح
     بغض النظر عن مصدره.
+
+    حماية من التكرار: لو استغرق رشيد وقت طويل بالرد (مثلاً إعادة محاولة
+    Gemini) وتجاوز مهلة الاتصال بالموبايل، المستخدم بيشوف خطأ Timeout
+    وبيعيد إرسال نفس الرسالة — كل محاولة بتوصل السيرفر وتنجح لحالها فعليًا
+    وبتولّد اقتراح مستقل، فيطلع نفس الاقتراح مكرر بشاشة الاقتراحات. نمنعها:
+    لو في اقتراح PENDING بنفس النوع ونفس المحتوى بالضبط خلال آخر
+    DEDUP_WINDOW_MINUTES دقايق لنفس المستخدم، نرجّعه هو بدل ما ننشئ نسخة
+    ثانية.
     """
+    action_type_enum = AgentActionType(action_type)
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+
+    recent_pending = (
+        db.query(AgentAction)
+        .filter(
+            AgentAction.user_id == user.id,
+            AgentAction.action_type == action_type_enum,
+            AgentAction.status == AgentActionStatus.PENDING,
+            AgentAction.created_at >= recent_cutoff,
+        )
+        .all()
+    )
+    # مقارنة الـ payload بلغة بايثون مباشرة — العمود JSON عادي (مش JSONB)،
+    # فمقارنة == على مستوى الاستعلام مش مضمونة تشتغل نفس الشي بكل الأنظمة.
+    # عدد الاقتراحات المعلقة لمستخدم وحد صغير أصلًا، فمافي كلفة حقيقية هون.
+    for existing in recent_pending:
+        if existing.payload == payload:
+            return existing
+
     action = AgentAction(
         user_id=user.id,
-        action_type=AgentActionType(action_type),
+        action_type=action_type_enum,
         payload=payload,
         reasoning=reasoning,
     )
@@ -100,6 +132,8 @@ def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
         _apply_goal_contribution(db, user, action)
     elif action.action_type == AgentActionType.SUGGEST_GOAL_CREATION:
         _apply_goal_creation(db, user, action)
+    elif action.action_type == AgentActionType.SUGGEST_INCOME_LOG:
+        _apply_income_log(db, user, action)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="نوع اقتراح غير مدعوم")
 
@@ -150,6 +184,7 @@ def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> No
 def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
     title = action.payload.get("title")
     target_amount = action.payload.get("target_amount")
+    is_recurring = bool(action.payload.get("is_recurring", False))
 
     if not title or not isinstance(target_amount, (int, float)) or target_amount <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
@@ -158,10 +193,38 @@ def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
         user_id=user.id,
         title=title,
         target_amount=target_amount,
+        # priority: نفس منطق الإنشاء اليدوي بالضبط — آخر الترتيب، مش 0 دايمًا،
+        # عشان ما تتصادم كل الأهداف الجاية من الشات بنفس الأولوية قبل أول ترتيب يدوي.
+        priority=goal_service._next_priority_for_user(db, user),
+        is_recurring=is_recurring,
+        last_reset_month=goal_service._current_month_key() if is_recurring else None,
         # current_amount تبدأ 0 افتراضيًا — الهدف هون تخطيطي، المستخدم بيبلش
         # يسجّل تقدمه فيه لاحقًا عبر التسجيل السريع أو اقتراحات المساهمة
     )
     db.add(goal)
+
+
+def _apply_income_log(db: Session, user: User, action: AgentAction) -> None:
+    # هذا بالضبط كان السبب الجذري لـ Bug 1: هذا النوع من الاقتراح كان موجود
+    # بالـ Enum ويتولّد صح من الشات، بس confirm_action() ما كان فيها حالة
+    # تتعامل معه أصلاً — فكان بيوقع على else ويرجّع 400 دايمًا، بغض النظر
+    # عن صحة البيانات. مش خطأ بالقيمة أو النوع، كان نقص كامل بالتنفيذ.
+    amount = action.payload.get("amount")
+    note = action.payload.get("note")
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
+
+    transaction = Transaction(
+        user_id=user.id,
+        category_id=None,
+        amount=amount,
+        type=TransactionType.INCOME,
+        source=TransactionSource.MANUAL,
+        note=note,
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.add(transaction)
 
 
 # ---------- توليد اقتراحات جديدة ----------

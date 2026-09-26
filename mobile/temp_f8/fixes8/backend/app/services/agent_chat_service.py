@@ -34,14 +34,7 @@ GOAL_CREATION_PROTOCOL_INSTRUCTIONS = """
    اسأل المستخدم مباشرة لو "غير متوفر" (وعند إجابته ضمّن حينها كتلة
    <<<ESSENTIALS_UPDATE>>>{"monthly_estimate": <رقم>}<<<END>>>).
 3. لما يصير عندك أرقام كافية، ضمّن بالرد كتلة:
-   <<<GOAL_PROPOSAL>>>{"title": "...", "target_amount": <رقم>, "breakdown": [...], "is_recurring": <true أو false>}<<<END>>>
-
-**متى تحط "is_recurring": true؟** بس لما يكون كلام المستخدم عن التزام
-شهري متكرر (إيجار، اشتراك، قسط) — مو مبلغ لمرة وحدة. أمثلة تستاهل
-is_recurring=true: "بدي أخصص لإيجار البيت كل شهر 150 دينار"، "عندي
-اشتراك نت شهري 15 دينار بدي أرصده". أمثلة عادية (is_recurring=false،
-أو ما تذكرها أصلاً وبترجع false افتراضيًا): "بدي 200 دينار ملابس
-لنهاية السنة" (مرة وحدة، مش شهري).
+   <<<GOAL_PROPOSAL>>>{"title": "...", "target_amount": <رقم>, "breakdown": [...]}<<<END>>>
 
 --- الحالة 2: المستخدم بيخبرك إنه استلم مبلغ فعليًا (دخل حقيقي حصل) ---
 مثال: "اشتغلت اليوم واجاني 25 دينار" أو "استلمت راتبي 300 دينار".
@@ -100,7 +93,6 @@ def _handle_goal_proposal(db: Session, user: User, data: dict, reasoning: str) -
     title = data.get("title")
     target_amount = data.get("target_amount")
     breakdown = data.get("breakdown", [])
-    is_recurring = bool(data.get("is_recurring", False))
 
     if not title or not isinstance(target_amount, (int, float)) or target_amount <= 0:
         logger.warning("Incomplete goal proposal from AI, ignoring: %r", data)
@@ -109,12 +101,7 @@ def _handle_goal_proposal(db: Session, user: User, data: dict, reasoning: str) -
     agent_action_service.create_pending_action(
         db, user,
         action_type="suggest_goal_creation",
-        payload={
-            "title": title,
-            "target_amount": float(target_amount),
-            "breakdown": breakdown,
-            "is_recurring": is_recurring,
-        },
+        payload={"title": title, "target_amount": float(target_amount), "breakdown": breakdown},
         reasoning=reasoning,
     )
 

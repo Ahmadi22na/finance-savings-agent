@@ -9,7 +9,16 @@ class AgentService {
 
   Future<String> sendMessage(String message) async {
     try {
-      final response = await _apiClient.dio.post('/agent/chat', data: {'message': message});
+      final response = await _apiClient.dio.post(
+        '/agent/chat',
+        data: {'message': message},
+        // رشيد ممكن ياخد وقت أطول من باقي الـ API (توليد AI + إعادة محاولة
+        // تلقائية لحد 3 مرات لو Gemini مزحوم) — الـ Timeout الافتراضي
+        // (15 ثانية) كان ينتهي قبل ما يخلص أحيانًا، فيشوف المستخدم خطأ
+        // Timeout ويعيد الإرسال بنفسه بينما الطلب الأول لسا شغال عالسيرفر
+        // فعليًا وبيكمل وينتج اقتراح — يعني اقتراح مكرر لنفس الرسالة.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
+      );
       return response.data['reply'] as String;
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);

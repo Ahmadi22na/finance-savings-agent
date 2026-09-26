@@ -2,30 +2,54 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/dashboard_providers.dart';
 import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 
-/// شاشة "طريق الهدف" — شكل ثابت دايمًا (10 مراحل بنفس التخطيط)، بس محتواه
-/// (كم مرحلة مكتملة، وهل ماشي حسب الجدول الزمني) مبني على بيانات هدف
-/// المستخدم الفعلية. المراحل مبنية على المبلغ *والوقت* سوا لو الهدف عنده
-/// Deadline — هيك المستخدم بيعرف فعليًا هل هو "ماشي صح" مش بس "كم وفر".
-class GoalPathScreen extends ConsumerWidget {
+/// شاشة "طريق الهدف" — شكل ثابت دايمًا (10 مراحل بنفس التخطيط بالضبط)،
+/// بس محتواه (كم مرحلة مكتملة، وهل ماشي حسب الجدول الزمني) مبني على بيانات
+/// هدف المستخدم الفعلية.
+///
+/// ملاحظة تقنية مهمة (إصلاح): النسخة الأولى استخدمت Row + MainAxisAlignment
+/// لعمل التعرّج، وهاد انكسر لأن التطبيق كامل تحت Directionality.rtl —
+/// start/end بيصير معكوس بصريًا بالـ RTL. الحل: إحداثيات x صريحة بالبيكسل
+/// (Stack + Positioned) بدل الاعتماد على alignment منطقي، بحيث الشكل ثابت
+/// دايمًا بغض النظر عن اتجاه اللغة.
+class GoalPathScreen extends ConsumerStatefulWidget {
   final Goal goal;
   const GoalPathScreen({super.key, required this.goal});
 
+  @override
+  ConsumerState<GoalPathScreen> createState() => _GoalPathScreenState();
+}
+
+class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
   static const int stageCount = 10;
+  static const double _nodeSize = 56;
+  static const double _verticalGap = 90;
+  bool _isDeleting = false;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final accentColor =
         user?.persona != null ? PersonaColors.fromKey(user!.persona!.key) : PersonaColors.energetic;
 
     final completedStages = _completedStagesCount();
     final scheduleInfo = _scheduleStatus();
+    final pathWidth = MediaQuery.of(context).size.width - 40;
+    final pathHeight = (stageCount - 1) * _verticalGap + _nodeSize + 20;
 
     return Scaffold(
-      appBar: AppBar(title: Text(goal.title)),
+      appBar: AppBar(
+        title: Text(widget.goal.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _isDeleting ? null : () => _confirmDelete(context),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -33,7 +57,7 @@ class GoalPathScreen extends ConsumerWidget {
             child: Column(
               children: [
                 Text(
-                  '${goal.currentAmount.toStringAsFixed(0)} / ${goal.targetAmount.toStringAsFixed(0)} دينار',
+                  '${widget.goal.currentAmount.toStringAsFixed(0)} / ${widget.goal.targetAmount.toStringAsFixed(0)} دينار',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 if (scheduleInfo != null) ...[
@@ -58,32 +82,44 @@ class GoalPathScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: ListView.builder(
-              reverse: true, // نبلش من تحت (مرحلة 1) ونطلع فوق (الهدف) — إحساس "تسلّق" للأعلى
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-              itemCount: stageCount,
-              itemBuilder: (context, indexFromBottom) {
-                final stageNumber = indexFromBottom + 1; // 1..10
-                final isCompleted = stageNumber <= completedStages;
-                final isCurrent = stageNumber == completedStages + 1;
-                final alignRight = stageNumber.isOdd; // تعرّج ثابت — نفس الشكل دايمًا بغض النظر عن الهدف
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: alignRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-                    children: [
-                      _StageNode(
-                        stageNumber: stageNumber,
-                        isCompleted: isCompleted,
-                        isCurrent: isCurrent,
+            child: SingleChildScrollView(
+              reverse: true, // نبلش من تحت (مرحلة 1) ونطلع فوق (الهدف)
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: SizedBox(
+                width: pathWidth,
+                height: pathHeight,
+                child: Stack(
+                  children: [
+                    // خط الطريق الفعلي — يُرسم أول قبل الدوائر عشان يظهر تحتها
+                    CustomPaint(
+                      size: Size(pathWidth, pathHeight),
+                      painter: _PathPainter(
+                        stageCount: stageCount,
+                        completedStages: completedStages,
+                        nodeSize: _nodeSize,
+                        verticalGap: _verticalGap,
+                        pathWidth: pathWidth,
                         accentColor: accentColor,
-                        onTap: isCompleted ? () => _showStageMessage(context, stageNumber) : null,
                       ),
-                    ],
-                  ),
-                );
-              },
+                    ),
+                    for (int stageNumber = 1; stageNumber <= stageCount; stageNumber++)
+                      Positioned(
+                        left: _xPositionFor(stageNumber, pathWidth),
+                        bottom: (stageNumber - 1) * _verticalGap,
+                        child: _StageNode(
+                          stageNumber: stageNumber,
+                          isCompleted: stageNumber <= completedStages,
+                          isCurrent: stageNumber == completedStages + 1,
+                          accentColor: accentColor,
+                          size: _nodeSize,
+                          onTap: stageNumber <= completedStages
+                              ? () => _showStageMessage(context, stageNumber)
+                              : null,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -91,19 +127,26 @@ class GoalPathScreen extends ConsumerWidget {
     );
   }
 
+  /// موقع X ثابت لكل رقم مرحلة — تعرّج بين يسار ويمين المسار، بنفس النمط
+  /// دايمًا (شكل ثابت) بغض النظر عن بيانات الهدف.
+  double _xPositionFor(int stageNumber, double pathWidth) {
+    final isLeftSide = stageNumber.isOdd;
+    return isLeftSide ? 0 : (pathWidth - _nodeSize);
+  }
+
   int _completedStagesCount() {
-    if (goal.targetAmount <= 0) return 0;
-    final ratio = goal.currentAmount / goal.targetAmount;
+    if (widget.goal.targetAmount <= 0) return 0;
+    final ratio = widget.goal.currentAmount / widget.goal.targetAmount;
     return (ratio * stageCount).floor().clamp(0, stageCount);
   }
 
   _ScheduleInfo? _scheduleStatus() {
-    if (goal.deadline == null) return null;
+    if (widget.goal.deadline == null) return null;
 
-    final totalDays = goal.deadline!.difference(goal.createdAt).inDays;
-    if (totalDays <= 0) return null; // بيانات غير منطقية (Deadline بالماضي) — نتجاهل بهدوء
+    final totalDays = widget.goal.deadline!.difference(widget.goal.createdAt).inDays;
+    if (totalDays <= 0) return null;
 
-    final elapsedDays = DateTime.now().difference(goal.createdAt).inDays.clamp(0, totalDays);
+    final elapsedDays = DateTime.now().difference(widget.goal.createdAt).inDays.clamp(0, totalDays);
     final expectedStage = ((elapsedDays / totalDays) * stageCount).floor().clamp(0, stageCount);
     final actualStage = _completedStagesCount();
     final onTrack = actualStage >= expectedStage;
@@ -115,24 +158,49 @@ class GoalPathScreen extends ConsumerWidget {
   }
 
   void _showStageMessage(BuildContext context, int stageNumber) {
-    // رسائل ثابتة بسيطة — مش من رشيد فعليًا (بدون أي استدعاء AI)، بس كافية
-    // تعطي إحساس الاحتفال بكل مرحلة بدون أي تكلفة إضافية
     const messages = [
-      'بداية قوية! 🚀',
-      'ماشي منيح تابع! 💪',
-      'ربع الطريق خلص! 🎯',
-      'استمر، شكلك جاد! 🔥',
-      'نص الطريق! هاي لحظة تستاهل وقفة 🎉',
-      'تجاوزت النص، الباقي أسهل 😎',
-      'قريب أكتر من بعيد هلأ ⭐',
-      'كمان شوي ووصلت! 🏁',
-      'أنت عمليًا وصلت! 🙌',
-      'مبروك! هيك بيكون التوفير 🏆',
+      'بداية قوية! 🚀', 'ماشي منيح تابع! 💪', 'ربع الطريق خلص! 🎯', 'استمر، شكلك جاد! 🔥',
+      'نص الطريق! هاي لحظة تستاهل وقفة 🎉', 'تجاوزت النص، الباقي أسهل 😎', 'قريب أكتر من بعيد هلأ ⭐',
+      'كمان شوي ووصلت! 🏁', 'أنت عمليًا وصلت! 🙌', 'مبروك! هيك بيكون التوفير 🏆',
     ];
     final index = (stageNumber - 1).clamp(0, messages.length - 1);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(messages[index]), duration: const Duration(seconds: 2)),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('حذف الهدف؟'),
+        content: Text('رح تحذف "${widget.goal.title}" نهائيًا. هاد الإجراء ما بينرجع.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('حذف', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      final goalService = ref.read(goalServiceProvider);
+      await goalService.deleteGoal(widget.goal.id);
+      ref.invalidate(goalsListProvider);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) {
+        setState(() => _isDeleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ما قدرنا نحذف الهدف، جرب كمان شوي')),
+        );
+      }
+    }
   }
 }
 
@@ -142,11 +210,73 @@ class _ScheduleInfo {
   _ScheduleInfo({required this.onTrack, required this.label});
 }
 
+/// يرسم خط الطريق الفعلي بين كل مرحلتين متتاليتين — الجزء المكتمل ملوّن
+/// بلون الشخصية، والباقي رمادي فاتح. هذا بالضبط الجزء يلي كان ناقص وخلى
+/// الشاشة تبان "دوائر عائمة" بدل "طريق" حقيقي.
+class _PathPainter extends CustomPainter {
+  final int stageCount;
+  final int completedStages;
+  final double nodeSize;
+  final double verticalGap;
+  final double pathWidth;
+  final Color accentColor;
+
+  _PathPainter({
+    required this.stageCount,
+    required this.completedStages,
+    required this.nodeSize,
+    required this.verticalGap,
+    required this.pathWidth,
+    required this.accentColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final incompletePaint = Paint()
+      ..color = Colors.grey.shade300
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final completePaint = Paint()
+      ..color = accentColor
+      ..strokeWidth = 5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    Offset centerOf(int stageNumber) {
+      final isLeftSide = stageNumber.isOdd;
+      final x = (isLeftSide ? 0 : (pathWidth - nodeSize)) + nodeSize / 2;
+      final yFromBottom = (stageNumber - 1) * verticalGap + nodeSize / 2;
+      final y = size.height - yFromBottom;
+      return Offset(x, y);
+    }
+
+    for (int stageNumber = 1; stageNumber < stageCount; stageNumber++) {
+      final start = centerOf(stageNumber);
+      final end = centerOf(stageNumber + 1);
+      final isSegmentCompleted = stageNumber < completedStages;
+
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..cubicTo(start.dx, start.dy - verticalGap / 2, end.dx, end.dy + verticalGap / 2, end.dx, end.dy);
+
+      canvas.drawPath(path, isSegmentCompleted ? completePaint : incompletePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PathPainter oldDelegate) {
+    return oldDelegate.completedStages != completedStages || oldDelegate.accentColor != accentColor;
+  }
+}
+
 class _StageNode extends StatelessWidget {
   final int stageNumber;
   final bool isCompleted;
   final bool isCurrent;
   final Color accentColor;
+  final double size;
   final VoidCallback? onTap;
 
   const _StageNode({
@@ -154,25 +284,30 @@ class _StageNode extends StatelessWidget {
     required this.isCompleted,
     required this.isCurrent,
     required this.accentColor,
+    required this.size,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isCurrent ? accentColor : (isCompleted ? accentColor : Colors.grey.shade300);
+    final borderColor = isCurrent || isCompleted ? accentColor : Colors.grey.shade300;
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 56,
-        height: 56,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isCompleted ? accentColor : Colors.white,
           border: Border.all(color: borderColor, width: isCurrent ? 3 : 2),
-          boxShadow: isCurrent
-              ? [BoxShadow(color: accentColor.withValues(alpha: 0.35), blurRadius: 10, spreadRadius: 2)]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isCurrent ? accentColor.withValues(alpha: 0.35) : Colors.black12,
+              blurRadius: isCurrent ? 10 : 4,
+              spreadRadius: isCurrent ? 2 : 0,
+            ),
+          ],
         ),
         child: Center(
           child: isCompleted

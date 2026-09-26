@@ -21,12 +21,14 @@ class GoalService {
     required String title,
     required double targetAmount,
     DateTime? deadline,
+    bool isRecurring = false,
   }) async {
     try {
       final response = await _apiClient.dio.post('/goals', data: {
         'title': title,
         'target_amount': targetAmount,
         if (deadline != null) 'deadline': deadline.toIso8601String().split('T').first,
+        'is_recurring': isRecurring,
       });
       return Goal.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -39,6 +41,28 @@ class GoalService {
       final response =
           await _apiClient.dio.post('/goals/$goalId/contribute', data: {'amount': amount});
       return Goal.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// يبعت ترتيب الأولوية الجديد الكامل للخطط النشطة (كل أو ولا وحدة —
+  /// الباكيند بيرفض لو ناقصة خطة). بيرجع اللستة الكاملة محدّثة من السيرفر.
+  Future<List<Goal>> reorderGoals(List<String> orderedGoalIds) async {
+    try {
+      final response = await _apiClient.dio.put('/goals/reorder', data: {
+        'ordered_goal_ids': orderedGoalIds,
+      });
+      final List data = response.data as List;
+      return data.map((json) => Goal.fromJson(json as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<void> deleteGoal(String goalId) async {
+    try {
+      await _apiClient.dio.delete('/goals/$goalId');
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
