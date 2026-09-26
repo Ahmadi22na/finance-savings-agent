@@ -358,3 +358,46 @@ def test_chat_goal_proposal_with_is_recurring_creates_recurring_goal(
     assert new_goal is not None
     assert new_goal.is_recurring is True
     assert new_goal.last_reset_month is not None
+
+
+# ---------- منع تكرار الاقتراحات (Dedup) ----------
+
+def test_duplicate_goal_proposal_within_window_is_not_duplicated(client, db_session, monkeypatch):
+    """
+    يحاكي بالضبط اللي صار بالتجربة الحقيقية: نفس رسالة المستخدم توصل
+    السيرفر مرتين قريب من بعض (مثلاً إعادة إرسال بعد Timeout وهمي عالموبايل)
+    — لازم يطلع اقتراح PENDING واحد بس، مش اثنين.
+    """
+    headers, user = register_with_persona(client, db_session, "0790010019")
+    reply_text = (
+        'ظبطتلك! <<<GOAL_PROPOSAL>>>{"title": "إيجار البيت", "target_amount": 150, '
+        '"breakdown": [], "is_recurring": true}<<<END>>>'
+    )
+    fake = FakeReplyProvider(reply_text)
+    patch_provider(monkeypatch, fake)
+
+    message = {"message": "بدي أخصص لإيجار البيت كل شهر 150 دينار"}
+    client.post("/api/v1/agent/chat", headers=headers, json=message)
+    client.post("/api/v1/agent/chat", headers=headers, json=message)
+
+    pending = agent_action_service.list_pending_actions(db_session, user)
+    goal_actions = [a for a in pending if a.action_type.value == "suggest_goal_creation"]
+    assert len(goal_actions) == 1
+
+
+def test_different_income_amounts_are_not_treated_as_duplicates(client, db_session, monkeypatch):
+    """الحماية من التكرار ما لازم تمنع بلاغين حقيقيين مختلفين بالمبلغ."""
+    headers, user = register_with_persona(client, db_session, "0790010020")
+
+    fake = FakeReplyProvider(
+        'تمام! <<<INCOME_LOG_PROPOSAL>>>{"amount": 25, "note": "شغل يوم"}<<<END>>>'
+    )
+    patch_provider(monkeypatch, fake)
+    client.post("/api/v1/agent/chat", headers=headers, json={"message": "اجاني 25 دينار"})
+
+    fake.text = 'تمام! <<<INCOME_LOG_PROPOSAL>>>{"amount": 40, "note": "شغل يوم تاني"}<<<END>>>'
+    client.post("/api/v1/agent/chat", headers=headers, json={"message": "اجاني 40 دينار كمان"})
+
+    pending = agent_action_service.list_pending_actions(db_session, user)
+    income_actions = [a for a in pending if a.action_type.value == "suggest_income_log"]
+    assert len(income_actions) == 2
