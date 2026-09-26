@@ -33,14 +33,23 @@ Future<void> maybePromptIncomeAllocation(
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _IncomeAllocationSheet(transaction: transaction, goals: activeGoals),
+    builder: (_) => _IncomeAllocationSheet(
+      callerContext: context,
+      transaction: transaction,
+      goals: activeGoals,
+    ),
   );
 }
 
 class _IncomeAllocationSheet extends ConsumerStatefulWidget {
+  final BuildContext callerContext;
   final Transaction transaction;
   final List<Goal> goals;
-  const _IncomeAllocationSheet({required this.transaction, required this.goals});
+  const _IncomeAllocationSheet({
+    required this.callerContext,
+    required this.transaction,
+    required this.goals,
+  });
 
   @override
   ConsumerState<_IncomeAllocationSheet> createState() => _IncomeAllocationSheetState();
@@ -103,13 +112,24 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
       _error = null;
     });
     try {
-      await ref.read(transactionServiceProvider).allocateIncome(
+      final updatedTransaction = await ref.read(transactionServiceProvider).allocateIncome(
             transactionId: widget.transaction.id,
             allocations: allocations,
           );
       ref.invalidate(goalsListProvider);
       ref.invalidate(recentTransactionsProvider);
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // لو خطة وحدة أو أكتر اكتفت بأقل من المبلغ يلي حددته (مثلاً حطيت
+      // 300 على هدف سقفه 150)، رشيد ما بيرمي الباقي — بيسألك فورًا وين
+      // بدك تحطه، بنفس الشاشة، بس بآخر قيم الخطط (خطة اكتفت رح تختفي من
+      // الخيارات لأنها صارت غير نشطة). لازم نستخدم Context الشاشة الأصلية
+      // (يلي فتحت هالـ Sheet) مش Context الـ Sheet نفسه — هو صار Unmounted
+      // فور ما استدعينا pop() فوق.
+      if (updatedTransaction.unallocatedAmount > 0.01 && widget.callerContext.mounted) {
+        await maybePromptIncomeAllocation(widget.callerContext, ref, updatedTransaction);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {

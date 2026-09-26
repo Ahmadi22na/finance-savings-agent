@@ -157,11 +157,25 @@ class _GoalsSection extends ConsumerStatefulWidget {
 class _GoalsSectionState extends ConsumerState<_GoalsSection> {
   List<Goal>? _localActiveOrder;
 
-  bool _sameIds(List<Goal> a, List<Goal> b) {
-    if (a.length != b.length) return false;
-    final idsA = a.map((g) => g.id).toSet();
-    final idsB = b.map((g) => g.id).toSet();
-    return idsA.difference(idsB).isEmpty;
+  // قبل: كنا نقارن IDs بس (كمجموعة، بدون ترتيب ولا محتوى) — هيك أي تغيير
+  // حقيقي بخطة موجودة أصلاً (توزيع دخل جزئي عليها مثلاً: current_amount
+  // بيتغيّر بس الخطة تضل نشطة، نفس مجموعة الـ IDs بالظبط) كان يُقرأ خطأ
+  // كـ"ولا شي تغيّر" فنعرض النسخة المحلية القديمة المخزّنة، بينما الباكيند
+  // فعليًا حدّث القيمة. لازم نقارن المحتوى الفعلي (والترتيب) مش بس الهوية.
+  bool _matchesServer(List<Goal> local, List<Goal> server) {
+    if (local.length != server.length) return false;
+    for (var i = 0; i < local.length; i++) {
+      final a = local[i];
+      final b = server[i];
+      if (a.id != b.id ||
+          a.currentAmount != b.currentAmount ||
+          a.targetAmount != b.targetAmount ||
+          a.priority != b.priority ||
+          a.isRecurring != b.isRecurring) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
@@ -184,10 +198,11 @@ class _GoalsSectionState extends ConsumerState<_GoalsSection> {
         final serverActive = goals.where((g) => g.status == 'active').toList();
         final others = goals.where((g) => g.status != 'active').toList();
 
-        // نحدّث النسخة المحلية بس لو مجموعة الخطط النشطة تغيّرت فعليًا
-        // (خطة انضافت/اتحذفت/تحققت) — مش كل مرة يعيد بناء نفس البيانات،
-        // وإلا رح نمسح أي سحب لسا ما وصل رد السيرفر عنه.
-        if (_localActiveOrder == null || !_sameIds(_localActiveOrder!, serverActive)) {
+        // نحدّث النسخة المحلية بس لو محتوى الخطط النشطة (أو ترتيبها) تغيّر
+        // فعليًا عن آخر نسخة عندنا — مش بس مجموعة الـ IDs. هيك أي بيانات
+        // حقيقية جاية من السيرفر (تقدم، أولوية، ...) دايمًا بتنعكس فورًا،
+        // وبنفس الوقت ما منمسح سحب لسا ما وصل رد تأكيده من السيرفر.
+        if (_localActiveOrder == null || !_matchesServer(_localActiveOrder!, serverActive)) {
           _localActiveOrder = serverActive;
         }
         final activeGoals = _localActiveOrder!;

@@ -42,15 +42,18 @@ class TransactionService {
   }
 
   /// توزيع معاملة دخل واحدة (كل أو جزء منها) على خطة أو أكتر — دايمًا
-  /// بقرار صريح من المستخدم، رشيد ما بيوزع شي من عنده.
-  Future<void> allocateIncome({
+  /// بقرار صريح من المستخدم، رشيد ما بيوزع شي من عنده. بيرجّع المعاملة
+  /// المحدّثة (unallocated_amount ممكن يضل أكبر من صفر لو الهدف اكتفى
+  /// بأقل من المبلغ المطلوب — الباقي يضل بانتظار توزيع تاني).
+  Future<Transaction> allocateIncome({
     required String transactionId,
     required List<Map<String, dynamic>> allocations,
   }) async {
     try {
-      await _apiClient.dio.post('/transactions/$transactionId/allocate', data: {
+      final response = await _apiClient.dio.post('/transactions/$transactionId/allocate', data: {
         'allocations': allocations,
       });
+      return Transaction.fromJson(response.data['transaction'] as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
