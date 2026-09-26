@@ -7,6 +7,7 @@ import '../../core/api_client.dart';
 import '../../models/category.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/icon_mapper.dart';
+import '../../widgets/income_allocation_sheet.dart';
 
 class QuickLogScreen extends ConsumerStatefulWidget {
   const QuickLogScreen({super.key});
@@ -86,6 +87,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         ));
       }
 
+      // دخل جديد ولسا في مبلغ غير موزّع؟ نسأل المستخدم وين بدو يحطه قبل
+      // ما نسكّر الشاشة — نفس القرار المتفق عليه: دايمًا نسأل صراحة.
+      if (_type == 'income' && result.unallocatedAmount > 0) {
+        await maybePromptIncomeAllocation(context, ref, result);
+      }
+
+      if (!mounted) return;
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (!mounted) return;

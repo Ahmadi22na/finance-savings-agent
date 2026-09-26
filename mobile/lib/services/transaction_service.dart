@@ -40,4 +40,19 @@ class TransactionService {
       throw ApiException.fromDioError(e);
     }
   }
+
+  /// توزيع معاملة دخل واحدة (كل أو جزء منها) على خطة أو أكتر — دايمًا
+  /// بقرار صريح من المستخدم، رشيد ما بيوزع شي من عنده.
+  Future<void> allocateIncome({
+    required String transactionId,
+    required List<Map<String, dynamic>> allocations,
+  }) async {
+    try {
+      await _apiClient.dio.post('/transactions/$transactionId/allocate', data: {
+        'allocations': allocations,
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
 }

@@ -11,6 +11,7 @@ class Transaction {
   final Category? category;
   final bool aiSuggested;
   final double? suggestionConfidence;
+  final double unallocatedAmount; // بس لمعاملات الدخل — قديش لسا ما اتوزع
 
   Transaction({
     required this.id,
@@ -22,6 +23,7 @@ class Transaction {
     required this.category,
     required this.aiSuggested,
     required this.suggestionConfidence,
+    required this.unallocatedAmount,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class Transaction {
           : null,
       aiSuggested: json['ai_suggested'] as bool? ?? false,
       suggestionConfidence: (json['suggestion_confidence'] as num?)?.toDouble(),
+      unallocatedAmount: (json['unallocated_amount'] as num?)?.toDouble() ?? 0,
     );
   }
 }
