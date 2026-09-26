@@ -5,7 +5,19 @@ from sqlalchemy.orm import Session
 
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
-from app.schemas.goal import GoalCreate, GoalContribution
+from app.schemas.goal import GoalCreate, GoalContribution, GoalReorderRequest
+
+
+def _next_priority_for_user(db: Session, user: User) -> int:
+    """خطة جديدة تنزل بآخر الترتيب افتراضيًا (أقل أولوية)، مش تزاحم الموجودات."""
+    max_priority = (
+        db.query(Goal.priority)
+        .filter(Goal.user_id == user.id)
+        .order_by(Goal.priority.desc())
+        .limit(1)
+        .scalar()
+    )
+    return (max_priority or 0) + 1
 
 
 def create_goal(db: Session, user: User, data: GoalCreate) -> Goal:
@@ -15,6 +27,7 @@ def create_goal(db: Session, user: User, data: GoalCreate) -> Goal:
         icon=data.icon,
         target_amount=data.target_amount,
         deadline=data.deadline,
+        priority=_next_priority_for_user(db, user),
     )
     db.add(goal)
     db.commit()
@@ -26,9 +39,35 @@ def list_goals_for_user(db: Session, user: User) -> list[Goal]:
     return (
         db.query(Goal)
         .filter(Goal.user_id == user.id)
-        .order_by(Goal.status, Goal.created_at.desc())
+        .order_by(Goal.status, Goal.priority, Goal.created_at.desc())
         .all()
     )
+
+
+def reorder_goals(db: Session, user: User, data: GoalReorderRequest) -> list[Goal]:
+    """
+    يعيد ترتيب أولوية الخطط النشطة حسب الترتيب المرسل بالكامل (كل أو ولا شي).
+    ما بنلمس الخطط المنجزة/المتروكة — أولويتها القديمة تضل زي ما هي، مش مهمة
+    بعد ما صارت غير نشطة.
+    """
+    active_goals = (
+        db.query(Goal)
+        .filter(Goal.user_id == user.id, Goal.status == GoalStatus.ACTIVE)
+        .all()
+    )
+    active_by_id = {goal.id: goal for goal in active_goals}
+
+    if set(data.ordered_goal_ids) != set(active_by_id.keys()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="لازم ترسل كل الخطط النشطة الحالية بالترتيب الجديد، ولا وحدة أكتر أو أقل",
+        )
+
+    for index, goal_id in enumerate(data.ordered_goal_ids):
+        active_by_id[goal_id].priority = index
+
+    db.commit()
+    return list_goals_for_user(db, user)
 
 
 def get_goal_or_404(db: Session, user: User, goal_id: uuid.UUID) -> Goal:

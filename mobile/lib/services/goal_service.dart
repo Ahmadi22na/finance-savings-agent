@@ -44,6 +44,20 @@ class GoalService {
     }
   }
 
+  /// يبعت ترتيب الأولوية الجديد الكامل للخطط النشطة (كل أو ولا وحدة —
+  /// الباكيند بيرفض لو ناقصة خطة). بيرجع اللستة الكاملة محدّثة من السيرفر.
+  Future<List<Goal>> reorderGoals(List<String> orderedGoalIds) async {
+    try {
+      final response = await _apiClient.dio.put('/goals/reorder', data: {
+        'ordered_goal_ids': orderedGoalIds,
+      });
+      final List data = response.data as List;
+      return data.map((json) => Goal.fromJson(json as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
   Future<void> deleteGoal(String goalId) async {
     try {
       await _apiClient.dio.delete('/goals/$goalId');

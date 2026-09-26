@@ -27,6 +27,11 @@ class Goal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     current_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
 
+    # ترتيب الأولوية بين خطط نفس المستخدم — رقم أصغر = أولوية أعلى.
+    # ما بنستخدم created_at للترتيب لأنه المستخدم لازم يقدر يعيد الترتيب يدويًا
+    # (سحب وإفلات بالموبايل) بدون ما نغيّر تاريخ الإنشاء الحقيقي.
+    priority: Mapped[int] = mapped_column(default=0, server_default="0", nullable=False)
+
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[GoalStatus] = mapped_column(
         SAEnum(GoalStatus, name="goal_status_enum"), default=GoalStatus.ACTIVE

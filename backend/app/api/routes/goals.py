@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
-from app.schemas.goal import GoalCreate, GoalOut, GoalContribution
+from app.schemas.goal import GoalCreate, GoalOut, GoalContribution, GoalReorderRequest
 from app.services import goal_service
 
 router = APIRouter(prefix="/goals", tags=["Goals"])
@@ -24,6 +24,15 @@ def create_goal(
 @router.get("", response_model=list[GoalOut])
 def list_goals(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return goal_service.list_goals_for_user(db, current_user)
+
+
+@router.put("/reorder", response_model=list[GoalOut])
+def reorder_goals(
+    data: GoalReorderRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return goal_service.reorder_goals(db, current_user, data)
 
 
 @router.post("/{goal_id}/contribute", response_model=GoalOut)

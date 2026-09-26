@@ -18,12 +18,22 @@ class GoalContribution(BaseModel):
     amount: float = Field(gt=0)
 
 
+class GoalReorderRequest(BaseModel):
+    """
+    ترتيب جديد كامل لكل خطط المستخدم النشطة، كلستة IDs بالترتيب المطلوب.
+    لازم تحتوي بالضبط نفس مجموعة الخطط النشطة الحالية — كل أو ولا شي،
+    عشان نتجنب حالة نص خطط مرتبة ونص لأ.
+    """
+    ordered_goal_ids: list[uuid.UUID] = Field(min_length=1)
+
+
 class GoalOut(BaseModel):
     id: uuid.UUID
     title: str
     icon: str
     target_amount: float
     current_amount: float
+    priority: int
     deadline: date | None
     status: GoalStatus
     progress_percentage: float
