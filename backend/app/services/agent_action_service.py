@@ -66,6 +66,9 @@ def reject_action(db: Session, user: User, action_id: UUID) -> AgentAction:
     return action
 
 
+DEDUP_WINDOW_MINUTES = 5  # نافذة منع التكرار — راجع الملاحظة بـ create_pending_action
+
+
 def create_pending_action(
     db: Session, user: User, action_type: str, payload: dict, reasoning: str | None = None
 ) -> AgentAction:
@@ -74,10 +77,38 @@ def create_pending_action(
     (اقتراحات دورية) ومن agent_chat_service (اقتراحات مبنية على محادثة حرة
     مع رشيد، مثل اقتراح هدف كامل بـ Sprint 5). مكان واحد لإنشاء أي اقتراح
     بغض النظر عن مصدره.
+
+    حماية من التكرار: لو استغرق رشيد وقت طويل بالرد (مثلاً إعادة محاولة
+    Gemini) وتجاوز مهلة الاتصال بالموبايل، المستخدم بيشوف خطأ Timeout
+    وبيعيد إرسال نفس الرسالة — كل محاولة بتوصل السيرفر وتنجح لحالها فعليًا
+    وبتولّد اقتراح مستقل، فيطلع نفس الاقتراح مكرر بشاشة الاقتراحات. نمنعها:
+    لو في اقتراح PENDING بنفس النوع ونفس المحتوى بالضبط خلال آخر
+    DEDUP_WINDOW_MINUTES دقايق لنفس المستخدم، نرجّعه هو بدل ما ننشئ نسخة
+    ثانية.
     """
+    action_type_enum = AgentActionType(action_type)
+    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+
+    recent_pending = (
+        db.query(AgentAction)
+        .filter(
+            AgentAction.user_id == user.id,
+            AgentAction.action_type == action_type_enum,
+            AgentAction.status == AgentActionStatus.PENDING,
+            AgentAction.created_at >= recent_cutoff,
+        )
+        .all()
+    )
+    # مقارنة الـ payload بلغة بايثون مباشرة — العمود JSON عادي (مش JSONB)،
+    # فمقارنة == على مستوى الاستعلام مش مضمونة تشتغل نفس الشي بكل الأنظمة.
+    # عدد الاقتراحات المعلقة لمستخدم وحد صغير أصلًا، فمافي كلفة حقيقية هون.
+    for existing in recent_pending:
+        if existing.payload == payload:
+            return existing
+
     action = AgentAction(
         user_id=user.id,
-        action_type=AgentActionType(action_type),
+        action_type=action_type_enum,
         payload=payload,
         reasoning=reasoning,
     )
