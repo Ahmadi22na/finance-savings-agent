@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentAction, AgentActionType, AgentActionStatus
-from app.models.transaction import Transaction
+from app.models.transaction import Transaction, TransactionType, TransactionSource
 from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
@@ -100,6 +100,8 @@ def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
         _apply_goal_contribution(db, user, action)
     elif action.action_type == AgentActionType.SUGGEST_GOAL_CREATION:
         _apply_goal_creation(db, user, action)
+    elif action.action_type == AgentActionType.SUGGEST_INCOME_LOG:
+        _apply_income_log(db, user, action)
     else:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="نوع اقتراح غير مدعوم")
 
@@ -162,6 +164,29 @@ def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
         # يسجّل تقدمه فيه لاحقًا عبر التسجيل السريع أو اقتراحات المساهمة
     )
     db.add(goal)
+
+
+def _apply_income_log(db: Session, user: User, action: AgentAction) -> None:
+    # هذا بالضبط كان السبب الجذري لـ Bug 1: هذا النوع من الاقتراح كان موجود
+    # بالـ Enum ويتولّد صح من الشات، بس confirm_action() ما كان فيها حالة
+    # تتعامل معه أصلاً — فكان بيوقع على else ويرجّع 400 دايمًا، بغض النظر
+    # عن صحة البيانات. مش خطأ بالقيمة أو النوع، كان نقص كامل بالتنفيذ.
+    amount = action.payload.get("amount")
+    note = action.payload.get("note")
+
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
+
+    transaction = Transaction(
+        user_id=user.id,
+        category_id=None,
+        amount=amount,
+        type=TransactionType.INCOME,
+        source=TransactionSource.MANUAL,
+        note=note,
+        occurred_at=datetime.now(timezone.utc),
+    )
+    db.add(transaction)
 
 
 # ---------- توليد اقتراحات جديدة ----------

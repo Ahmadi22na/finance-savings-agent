@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../models/goal.dart';
-import '../../services/goal_service.dart';
 import '../../theme/app_theme.dart';
 
 /// شاشة "طريق الهدف" — شكل ثابت دايمًا (10 مراحل بنفس التخطيط بالضبط)،
@@ -43,7 +42,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget_goal.title),
+        title: Text(widget.goal.title),
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -58,7 +57,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
             child: Column(
               children: [
                 Text(
-                  '${widget_goal.currentAmount.toStringAsFixed(0)} / ${widget_goal.targetAmount.toStringAsFixed(0)} دينار',
+                  '${widget.goal.currentAmount.toStringAsFixed(0)} / ${widget.goal.targetAmount.toStringAsFixed(0)} دينار',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 if (scheduleInfo != null) ...[
@@ -128,8 +127,6 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
     );
   }
 
-  Goal get widget_goal => widget.goal;
-
   /// موقع X ثابت لكل رقم مرحلة — تعرّج بين يسار ويمين المسار، بنفس النمط
   /// دايمًا (شكل ثابت) بغض النظر عن بيانات الهدف.
   double _xPositionFor(int stageNumber, double pathWidth) {
@@ -138,18 +135,18 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
   }
 
   int _completedStagesCount() {
-    if (widget_goal.targetAmount <= 0) return 0;
-    final ratio = widget_goal.currentAmount / widget_goal.targetAmount;
+    if (widget.goal.targetAmount <= 0) return 0;
+    final ratio = widget.goal.currentAmount / widget.goal.targetAmount;
     return (ratio * stageCount).floor().clamp(0, stageCount);
   }
 
   _ScheduleInfo? _scheduleStatus() {
-    if (widget_goal.deadline == null) return null;
+    if (widget.goal.deadline == null) return null;
 
-    final totalDays = widget_goal.deadline!.difference(widget_goal.createdAt).inDays;
+    final totalDays = widget.goal.deadline!.difference(widget.goal.createdAt).inDays;
     if (totalDays <= 0) return null;
 
-    final elapsedDays = DateTime.now().difference(widget_goal.createdAt).inDays.clamp(0, totalDays);
+    final elapsedDays = DateTime.now().difference(widget.goal.createdAt).inDays.clamp(0, totalDays);
     final expectedStage = ((elapsedDays / totalDays) * stageCount).floor().clamp(0, stageCount);
     final actualStage = _completedStagesCount();
     final onTrack = actualStage >= expectedStage;
@@ -177,7 +174,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('حذف الهدف؟'),
-        content: Text('رح تحذف "${widget_goal.title}" نهائيًا. هاد الإجراء ما بينرجع.'),
+        content: Text('رح تحذف "${widget.goal.title}" نهائيًا. هاد الإجراء ما بينرجع.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
           TextButton(
@@ -193,11 +190,11 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
     setState(() => _isDeleting = true);
     try {
       final goalService = ref.read(goalServiceProvider);
-      await goalService.deleteGoal(widget_goal.id);
+      await goalService.deleteGoal(widget.goal.id);
       ref.invalidate(goalsListProvider);
-      if (mounted) Navigator.of(context).pop();
+      if (context.mounted) Navigator.of(context).pop();
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         setState(() => _isDeleting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('ما قدرنا نحذف الهدف، جرب كمان شوي')),
