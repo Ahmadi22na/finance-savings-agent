@@ -17,6 +17,9 @@ dependencies:
   dio: ^5.7.0                    # HTTP client — أقوى وأنظف من http الأساسية (interceptors, error handling)
   flutter_secure_storage: ^9.2.2  # تخزين آمن للـ JWT tokens على الجهاز (مش SharedPreferences العادية)
 
+  # --- OCR الفواتير (Sprint 8) ---
+  image_picker: ^1.1.2            # فتح الكاميرا أو معرض الصور لتصوير/اختيار فاتورة
+
   # --- أدوات عامة ---
   cupertino_icons: ^1.0.8
   intl: ^0.19.0                   # تنسيق التواريخ والأرقام (مهم للمبالغ المالية)
