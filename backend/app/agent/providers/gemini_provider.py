@@ -42,6 +42,30 @@ class GeminiProvider(BaseAIProvider):
             contents.append({"role": role, "parts": [{"text": turn.text}]})
         contents.append({"role": "user", "parts": [{"text": user_message}]})
 
+        return self._generate(system_prompt, contents)
+
+    def analyze_image(
+        self,
+        system_prompt: str,
+        user_message: str,
+        image_bytes: bytes,
+        mime_type: str,
+    ) -> AgentReply:
+        contents = [{
+            "role": "user",
+            "parts": [
+                {"text": user_message},
+                {"inline_data": {"mime_type": mime_type, "data": image_bytes}},
+            ],
+        }]
+        return self._generate(system_prompt, contents)
+
+    def _generate(self, system_prompt: str, contents: list[dict]) -> AgentReply:
+        """
+        منطق مشترك بين generate_reply وanalyze_image — نفس التعامل بالضبط مع
+        أخطاء المصادقة (401) والازدحام المؤقت (503 مع إعادة محاولة)، الفرق
+        الوحيد هو شكل contents (نص بس، أو نص + صورة).
+        """
         last_server_error: ServerError | None = None
 
         for attempt in range(1, MAX_RETRIES_ON_SERVER_ERROR + 1):
@@ -78,4 +102,3 @@ class GeminiProvider(BaseAIProvider):
             text="خدمة الذكاء الاصطناعي مشغولة هلأ، جرب كمان شوي 🙏",
             raw_error=str(last_server_error),
         )
-

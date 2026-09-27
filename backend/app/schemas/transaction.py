@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.models.transaction import TransactionType, TransactionSource
 from app.schemas.category import CategoryOut
+from app.schemas.goal import GoalOut
 
 
 class TransactionQuickLogCreate(BaseModel):
@@ -40,4 +41,38 @@ class TransactionOut(BaseModel):
     ai_suggested: bool = False
     suggestion_confidence: float | None = None
 
+    # بس لمعاملات الدخل: قديش لسا باقي من هالمبلغ ما اتوزع على أي خطة.
+    # الموبايل يستخدمها يقرر يعرض شاشة "وين بدك تحط هالدخل؟" أو لأ.
+    # دايمًا 0 لمعاملات المصروف (مفهوم التوزيع أصلاً خاص بالدخل بس).
+    unallocated_amount: float = 0
+
     model_config = {"from_attributes": True}
+
+
+class IncomeAllocationItem(BaseModel):
+    goal_id: uuid.UUID
+    amount: float = Field(gt=0)
+
+
+class IncomeAllocationRequest(BaseModel):
+    """توزيع دخل واحد (معاملة وحدة) على خطة أو أكتر دفعة وحدة."""
+    allocations: list[IncomeAllocationItem] = Field(min_length=1)
+
+
+class IncomeAllocationResult(BaseModel):
+    transaction: TransactionOut
+    updated_goals: list[GoalOut]
+
+
+class ReceiptScanResult(BaseModel):
+    """
+    نتيجة قراءة فاتورة — مسودة بس، ما بتنشئ Transaction. الموبايل يعبّي فيها
+    شاشة التسجيل السريع مسبقًا، والمستخدم يراجعها/يعدّلها قبل ما يحفظ فعليًا.
+    """
+    amount: float | None
+    category_id: uuid.UUID | None
+    category_name: str | None
+    note: str | None
+    # False لو الصورة مش واضحة أو مش فاتورة أصلًا (ولا حتى قدر يقرأ مبلغ) —
+    # الموبايل يعرض رسالة "ما قدرنا نقرأ الفاتورة، جرب صورة أوضح" بهالحالة
+    readable: bool

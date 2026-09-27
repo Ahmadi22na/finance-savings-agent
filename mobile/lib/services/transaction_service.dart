@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 import '../core/api_client.dart';
 import '../models/transaction.dart';
+import '../models/receipt_scan_result.dart';
 
 class TransactionService {
   final ApiClient _apiClient;
@@ -54,6 +57,28 @@ class TransactionService {
         'allocations': allocations,
       });
       return Transaction.fromJson(response.data['transaction'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// يرفع صورة فاتورة ويرجّع مسودة (مبلغ + تصنيف مقترح + ملاحظة) — ما بتنشئ
+  /// أي معاملة، المستخدم لازم يراجعها ويحفظها بنفسه عبر quickLog العادي.
+  Future<ReceiptScanResult> scanReceipt(File imageFile) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split(Platform.pathSeparator).last,
+        ),
+      });
+      final response = await _apiClient.dio.post(
+        '/transactions/scan-receipt',
+        data: formData,
+        // قراءة صورة عبر Gemini Vision ممكن تاخد وقت أطول من نداء نصي عادي
+        options: Options(receiveTimeout: const Duration(seconds: 30)),
+      );
+      return ReceiptScanResult.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
