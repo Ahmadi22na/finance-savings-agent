@@ -14,6 +14,7 @@ import '../quick_log/quick_log_screen.dart';
 import '../chat/chat_screen.dart';
 import '../suggestions/suggestions_screen.dart';
 import '../goal_path/goal_path_screen.dart';
+import '../add_goal/add_goal_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -99,7 +100,20 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const Text('أهدافك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('أهدافك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  tooltip: 'هدف جديد',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AddGoalScreen()),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 4),
             const Text(
               'اسحب من ⠿ لترتيب أولوياتك',
