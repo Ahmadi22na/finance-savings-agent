@@ -40,3 +40,18 @@ class BaseAIProvider(ABC):
         مش يطلع كـ Exception خام للمستخدم.
         """
         raise NotImplementedError
+
+    @abstractmethod
+    def analyze_image(
+        self,
+        system_prompt: str,
+        user_message: str,
+        image_bytes: bytes,
+        mime_type: str,
+    ) -> AgentReply:
+        """
+        نفس فكرة generate_reply بالضبط، بس بيرفق صورة وحدة مع الرسالة —
+        مخصصة لمهام استخراج بيانات لمرة وحدة من صورة (زي قراءة فاتورة عبر
+        OCR)، مش محادثة متعددة الأدوار، فما فيها history عمدًا.
+        """
+        raise NotImplementedError

@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
@@ -22,6 +25,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   final _noteController = TextEditingController();
   Category? _selectedCategory;
   bool _isSubmitting = false;
+  bool _isScanning = false;
 
   @override
   void initState() {
@@ -59,6 +63,89 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       _selectedCategory = category;
       _noteController.clear(); // نفس المنطق بالعكس — اختيار أيقونة بيلغي أي نص مكتوب
     });
+  }
+
+  String _formatAmount(double value) {
+    return value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+  }
+
+  Future<void> _scanReceipt() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('صوّر فاتورة'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('اختر من المعرض'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+
+    setState(() => _isScanning = true);
+    try {
+      final result = await ref.read(transactionServiceProvider).scanReceipt(File(picked.path));
+
+      if (!result.readable) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('ما قدرنا نقرأ الفاتورة بوضوح — جرب صورة أوضح أو عبّيها يدوي'),
+          ));
+        }
+        return;
+      }
+
+      // نبحث عن التصنيف المقترح ضمن تصنيفات المستخدم الفعلية (رشيد ما بيخترع
+      // id، بس منتأكد هون كمان قبل ما نعرضه بالواجهة)
+      Category? matchedCategory;
+      if (result.categoryId != null) {
+        final categories = await ref.read(categoriesListProvider.future);
+        for (final category in categories) {
+          if (category.id == result.categoryId) {
+            matchedCategory = category;
+            break;
+          }
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _type = 'expense'; // فاتورة دايمًا مصروف، مش دخل
+        if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
+        // نفس منطق الشاشة الأصلي: مسار الأيقونة ومسار النص متبادلين، مش
+        // مع بعض — لو عندنا تصنيف واثوق فيه منستخدمه (أسرع مراجعة)، وإلا
+        // منعبّي النص الحر (اسم المحل) ويختار المستخدم تصنيف بنفسه
+        if (matchedCategory != null) {
+          _selectedCategory = matchedCategory;
+          _noteController.clear();
+        } else if (result.note != null) {
+          _noteController.text = result.note!;
+          _selectedCategory = null;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('قرأت الفاتورة — راجع البيانات قبل ما تحفظ 👀'),
+        ));
+      }
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _isScanning = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -111,7 +198,21 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         user?.persona != null ? PersonaColors.fromKey(user!.persona!.key) : PersonaColors.energetic;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل سريع')),
+      appBar: AppBar(
+        title: const Text('تسجيل سريع'),
+        actions: [
+          IconButton(
+            icon: _isScanning
+                ? const SizedBox(
+                    height: 20, width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.camera_alt_outlined),
+            tooltip: 'امسح فاتورة',
+            onPressed: _isScanning ? null : _scanReceipt,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
