@@ -12,8 +12,10 @@ from app.schemas.transaction import (
     IncomeAllocationRequest,
     IncomeAllocationResult,
     ReceiptScanResult,
+    SmsParseRequest,
+    SmsParseResult,
 )
-from app.services import transaction_service, income_allocation_service, receipt_service
+from app.services import transaction_service, income_allocation_service, receipt_service, sms_parser_service
 from app.agent.providers.factory import get_ai_provider
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -86,6 +88,22 @@ async def scan_receipt(
 
     provider = get_ai_provider()
     return receipt_service.scan_receipt(db, current_user, provider, image_bytes, file.content_type)
+
+
+@router.post("/parse-sms", response_model=SmsParseResult)
+def parse_sms(
+    data: SmsParseRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    يحلل نص رسالة بنكية ملصوقة يدويًا (Copy-Paste، بدون أي صلاحية قراءة
+    رسائل) ويرجّع مسودة — نفس فلسفة /scan-receipt بالضبط، ما بيحفظ أي شي.
+    """
+    parsed = sms_parser_service.parse_sms(data.text)
+    if parsed is None:
+        return SmsParseResult(amount=None, type=None, note=None, parsed=False)
+
+    return SmsParseResult(amount=parsed.amount, type=parsed.type, note=parsed.note, parsed=True)
 
 
 @router.post("/{transaction_id}/allocate", response_model=IncomeAllocationResult)

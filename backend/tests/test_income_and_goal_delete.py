@@ -401,3 +401,176 @@ def test_different_income_amounts_are_not_treated_as_duplicates(client, db_sessi
     pending = agent_action_service.list_pending_actions(db_session, user)
     income_actions = [a for a in pending if a.action_type.value == "suggest_income_log"]
     assert len(income_actions) == 2
+
+
+# ---------- توزيع الدخل على الخطط (Sprint 7 جزء ج) ----------
+
+def test_new_income_transaction_starts_fully_unallocated(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010021")
+    response = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 100, "type": "income", "note": "راتب",
+    })
+    assert response.status_code == 201
+    assert response.json()["unallocated_amount"] == 100.0
+
+
+def test_allocate_income_splits_across_two_goals(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010022")
+    goal_a = client.post("/api/v1/goals", headers=headers, json={
+        "title": "سفر", "target_amount": 500,
+    }).json()
+    goal_b = client.post("/api/v1/goals", headers=headers, json={
+        "title": "مصاريف", "target_amount": 500,
+    }).json()
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 300, "type": "income", "note": "راتب",
+    }).json()
+
+    response = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [
+            {"goal_id": goal_a["id"], "amount": 150},
+            {"goal_id": goal_b["id"], "amount": 100},
+        ]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["transaction"]["unallocated_amount"] == 50.0
+
+    updated_by_id = {g["id"]: g for g in body["updated_goals"]}
+    assert updated_by_id[goal_a["id"]]["current_amount"] == 150.0
+    assert updated_by_id[goal_b["id"]]["current_amount"] == 100.0
+
+
+def test_allocate_income_rejects_amount_over_available(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010023")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "سفر", "target_amount": 500,
+    }).json()
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 50, "type": "income", "note": "شغل يوم",
+    }).json()
+
+    response = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 999}]},
+    )
+    assert response.status_code == 400
+
+
+def test_allocate_income_rejects_non_income_transaction(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010024")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "سفر", "target_amount": 500,
+    }).json()
+    expense = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 20, "type": "expense", "note": "بقالة",
+    }).json()
+
+    response = client.post(
+        f"/api/v1/transactions/{expense['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 10}]},
+    )
+    assert response.status_code == 400
+
+
+def test_allocate_income_rejects_achieved_goal(client, db_session):
+    headers, user = register_with_persona(client, db_session, "0790010025")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "هدف صغير", "target_amount": 20,
+    }).json()
+    client.post(f"/api/v1/goals/{goal['id']}/contribute", headers=headers, json={"amount": 20})
+
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 50, "type": "income", "note": "شغل يوم",
+    }).json()
+    response = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 10}]},
+    )
+    assert response.status_code == 400
+
+
+def test_allocate_income_twice_accumulates_unallocated_correctly(client, db_session):
+    """توزيع جزئي، وبعدين توزيع ثاني لنفس المعاملة — لازم يحسب الباقي صح
+    ويمنع تجاوز المبلغ الكلي الأصلي."""
+    headers, user = register_with_persona(client, db_session, "0790010026")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "سفر", "target_amount": 500,
+    }).json()
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 100, "type": "income", "note": "راتب",
+    }).json()
+
+    first = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 40}]},
+    )
+    assert first.status_code == 200
+    assert first.json()["transaction"]["unallocated_amount"] == 60.0
+
+    # محاولة توزيع أكتر من الـ 60 المتبقية لازم تنرفض
+    over = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 61}]},
+    )
+    assert over.status_code == 400
+
+    second = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 60}]},
+    )
+    assert second.status_code == 200
+    assert second.json()["transaction"]["unallocated_amount"] == 0.0
+
+
+def test_allocate_income_caps_at_goal_capacity_and_keeps_remainder_unallocated(client, db_session):
+    """
+    بالضبط سيناريو أحمد الحقيقي: هدف سقفه 150، وزّع عليه 300 دينار من دخل.
+    لازم current_amount يوقف عند 150 بالظبط (مش يتجاوزه)، والـ 150 الزايدة
+    تضل unallocated على المعاملة، جاهزة يوزعها المستخدم على خطة تانية.
+    """
+    headers, user = register_with_persona(client, db_session, "0790010027")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "هدف صغير", "target_amount": 150,
+    }).json()
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 300, "type": "income", "note": "دخل كبير",
+    }).json()
+
+    response = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 300}]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["transaction"]["unallocated_amount"] == 150.0
+    updated_goal = body["updated_goals"][0]
+    assert updated_goal["current_amount"] == 150.0
+    assert updated_goal["status"] == "achieved"
+
+
+def test_partial_allocation_shows_correct_progress(client, db_session):
+    """هدف سقفه 100، وزّع عليه 15 بس — لازم current_amount يصير 15 بالضبط
+    والخطة تضل نشطة (هاد بالضبط سيناريو أحمد الثاني)."""
+    headers, user = register_with_persona(client, db_session, "0790010028")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "هدف كبير", "target_amount": 100,
+    }).json()
+    transaction = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 15, "type": "income", "note": "شغل يوم",
+    }).json()
+
+    response = client.post(
+        f"/api/v1/transactions/{transaction['id']}/allocate", headers=headers,
+        json={"allocations": [{"goal_id": goal["id"], "amount": 15}]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["transaction"]["unallocated_amount"] == 0.0
+    updated_goal = body["updated_goals"][0]
+    assert updated_goal["current_amount"] == 15.0
+    assert updated_goal["status"] == "active"
+    assert updated_goal["progress_percentage"] == 15.0
