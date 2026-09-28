@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../core/api_client.dart';
 import '../models/transaction.dart';
 import '../models/receipt_scan_result.dart';
+import '../models/sms_parse_result.dart';
 
 class TransactionService {
   final ApiClient _apiClient;
@@ -79,6 +80,19 @@ class TransactionService {
         options: Options(receiveTimeout: const Duration(seconds: 30)),
       );
       return ReceiptScanResult.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// يحلل نص رسالة بنكية ملصوقة يدويًا (بدون أي صلاحية قراءة رسائل) ويرجّع
+  /// مسودة — ما بتنشئ أي معاملة، المستخدم لازم يراجعها ويحفظها بنفسه.
+  Future<SmsParseResult> parseSms(String text) async {
+    try {
+      final response = await _apiClient.dio.post('/transactions/parse-sms', data: {
+        'text': text,
+      });
+      return SmsParseResult.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }

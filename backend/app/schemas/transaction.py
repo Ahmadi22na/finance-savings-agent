@@ -76,3 +76,21 @@ class ReceiptScanResult(BaseModel):
     # False لو الصورة مش واضحة أو مش فاتورة أصلًا (ولا حتى قدر يقرأ مبلغ) —
     # الموبايل يعرض رسالة "ما قدرنا نقرأ الفاتورة، جرب صورة أوضح" بهالحالة
     readable: bool
+
+
+class SmsParseRequest(BaseModel):
+    text: str = Field(min_length=3, max_length=2000)
+
+
+class SmsParseResult(BaseModel):
+    """
+    نتيجة تحليل رسالة بنكية — مسودة بس، نفس فلسفة ReceiptScanResult تمامًا:
+    ما بتنشئ أي Transaction، الموبايل يعبّي فيها شاشة التسجيل السريع
+    والمستخدم يراجعها ويحفظها بنفسه.
+    """
+    amount: float | None
+    type: TransactionType | None
+    note: str | None
+    # False لو النص ما طابق أي نمط مدعوم أصلًا (رسالة بنك غير مدعوم، أو نص
+    # عشوائي مش رسالة بنكية) — الموبايل يعرض "ما قدرنا نفهم هاي الرسالة"
+    parsed: bool
