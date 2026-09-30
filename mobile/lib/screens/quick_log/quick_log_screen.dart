@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../core/api_client.dart';
 import '../../models/category.dart';
+import '../../models/sms_parse_result.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/icon_mapper.dart';
 import '../../widgets/income_allocation_sheet.dart';
@@ -148,6 +149,68 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     }
   }
 
+  Future<void> _parseSmsFromDialog() async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('الصق نص الرسالة البنكية'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'مثال: Successfully received 4.500 JOD from...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('حلّل'),
+          ),
+        ],
+      ),
+    );
+    if (text == null || text.isEmpty || !mounted) return;
+
+    try {
+      final result = await ref.read(transactionServiceProvider).parseSms(text);
+      if (!result.parsed) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('ما قدرنا نفهم هاي الرسالة — جرب تعبّي يدوي'),
+          ));
+        }
+        return;
+      }
+
+      setState(() {
+        if (result.type != null) _type = result.type!;
+        if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
+        // النص هون وصف تحويل (زي "تحويل CliQ من ...")، مش اسم محل بالضرورة —
+        // نسيبه بخانة الملاحظة والمستخدم يختار تصنيف مناسب بنفسه، بدل ما
+        // نخمّن تصنيف غلط من نص مالي مجرد
+        if (result.note != null) {
+          _noteController.text = result.note!;
+          _selectedCategory = null;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('فهمت الرسالة — راجع البيانات قبل ما تحفظ 👀'),
+        ));
+      }
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
   Future<void> _submit() async {
     if (!_canSubmit) return;
     setState(() => _isSubmitting = true);
@@ -210,6 +273,11 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                 : const Icon(Icons.camera_alt_outlined),
             tooltip: 'امسح فاتورة',
             onPressed: _isScanning ? null : _scanReceipt,
+          ),
+          IconButton(
+            icon: const Icon(Icons.sms_outlined),
+            tooltip: 'من رسالة بنكية',
+            onPressed: _isScanning ? null : _parseSmsFromDialog,
           ),
         ],
       ),

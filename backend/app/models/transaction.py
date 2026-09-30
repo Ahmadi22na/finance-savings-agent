@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Numeric, Enum as SAEnum, ForeignKey, DateTime, JSON
+from sqlalchemy import Numeric, Enum as SAEnum, ForeignKey, DateTime, JSON, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,13 @@ class TransactionSource(str, enum.Enum):
 class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transactions"
 
+    # بصمة المصدر الخارجي (مثلاً hash رسالة SMS) — تمنع استيراد نفس الرسالة مرتين.
+    # القيد فريد لكل مستخدم على حدة، وقيم NULL (معاملات يدوية/OCR) مسموحة بلا حدود
+    # لأن NULL ما بتتساوى مع بعضها بقيود UNIQUE بـ PostgreSQL وSQLite.
+    __table_args__ = (
+        UniqueConstraint("user_id", "external_ref", name="uq_transactions_user_external_ref"),
+    )
+
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     category_id: Mapped[UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
@@ -44,6 +51,8 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # يخزن البيانات الخام الأصلية من المصدر (نص رسالة SMS، نتيجة OCR الكاملة...)
     # مفيد جدًا للتصحيح (debugging) ولتحسين دقة الـ Parsers لاحقًا دون فقدان المعلومة الأصلية
     raw_source_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    external_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     category: Mapped["Category | None"] = relationship(back_populates="transactions")

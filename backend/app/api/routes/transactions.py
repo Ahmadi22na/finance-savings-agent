@@ -12,8 +12,15 @@ from app.schemas.transaction import (
     IncomeAllocationRequest,
     IncomeAllocationResult,
     ReceiptScanResult,
+    SmsParseRequest,
+    SmsParseResult,
+    SmsImportPreviewRequest,
+    SmsImportPreviewResponse,
+    SmsImportConfirmRequest,
 )
-from app.services import transaction_service, income_allocation_service, receipt_service
+from app.services import (
+    transaction_service, income_allocation_service, receipt_service, sms_parser_service, sms_import_service,
+)
 from app.agent.providers.factory import get_ai_provider
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -54,7 +61,14 @@ def list_transactions(
     current_user: User = Depends(get_current_user),
 ):
     transactions = transaction_service.list_transactions_for_user(db, current_user, limit=limit)
-    return [_to_transaction_out(db, t) for t in transactions]
+    # طلب SQL واحد لكل unallocated بدل طلب لكل معاملة (N+1)
+    unallocated = income_allocation_service.unallocated_amounts_for(db, transactions)
+    results = []
+    for transaction in transactions:
+        item = TransactionOut.model_validate(transaction)
+        item.unallocated_amount = unallocated.get(transaction.id, 0.0)
+        results.append(item)
+    return results
 
 
 @router.post("/scan-receipt", response_model=ReceiptScanResult)
@@ -86,6 +100,51 @@ async def scan_receipt(
 
     provider = get_ai_provider()
     return receipt_service.scan_receipt(db, current_user, provider, image_bytes, file.content_type)
+
+
+@router.post("/parse-sms", response_model=SmsParseResult)
+def parse_sms(
+    data: SmsParseRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    يحلل نص رسالة بنكية ملصوقة يدويًا (Copy-Paste، بدون أي صلاحية قراءة
+    رسائل) ويرجّع مسودة — نفس فلسفة /scan-receipt بالضبط، ما بيحفظ أي شي.
+    """
+    parsed = sms_parser_service.parse_sms(data.text)
+    if parsed is None:
+        return SmsParseResult(amount=None, type=None, note=None, parsed=False)
+
+    return SmsParseResult(amount=parsed.amount, type=parsed.type, note=parsed.note, parsed=True)
+
+
+@router.post("/sms-import/preview", response_model=SmsImportPreviewResponse)
+def preview_sms_import(
+    data: SmsImportPreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    يحلل رسائل مقروءة من صندوق الوارد (بعد فلترة محلية على الموبايل) ويرجّع
+    المعاملات المكتشفة مع علامة already_imported — ما بيحفظ أي شي.
+    """
+    candidates = sms_import_service.preview_import(db, current_user, data.messages)
+    return SmsImportPreviewResponse(candidates=candidates)
+
+
+@router.post("/sms-import/confirm", response_model=list[TransactionOut], status_code=status.HTTP_201_CREATED)
+def confirm_sms_import(
+    data: SmsImportConfirmRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    ينشئ معاملات فعلية من الرسائل يلي اختارها المستخدم. السيرفر بيعيد تحليل
+    نص كل رسالة بنفسه (ما بيثق بأي رقم من الموبايل)، وبيتجاهل يلي انستوردت
+    قبل.
+    """
+    created = sms_import_service.confirm_import(db, current_user, data.messages)
+    return [_to_transaction_out(db, t) for t in created]
 
 
 @router.post("/{transaction_id}/allocate", response_model=IncomeAllocationResult)
