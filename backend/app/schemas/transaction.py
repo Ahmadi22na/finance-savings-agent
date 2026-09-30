@@ -94,3 +94,33 @@ class SmsParseResult(BaseModel):
     # False لو النص ما طابق أي نمط مدعوم أصلًا (رسالة بنك غير مدعوم، أو نص
     # عشوائي مش رسالة بنكية) — الموبايل يعرض "ما قدرنا نفهم هاي الرسالة"
     parsed: bool
+
+
+# ---------- استيراد رسائل بنكية من صندوق الوارد (Sprint 9 — المرحلة 1) ----------
+
+class SmsMessageIn(BaseModel):
+    body: str = Field(min_length=3, max_length=2000)
+    received_at: datetime
+
+
+class SmsImportPreviewRequest(BaseModel):
+    # الموبايل بيفلتر محليًا ويبعت بس الرسائل يلي شكلها مالي — 300 سقف
+    # كافي جدًا، ويحمي السيرفر من طلب ضخم بالغلط
+    messages: list[SmsMessageIn] = Field(min_length=1, max_length=300)
+
+
+class SmsImportCandidate(BaseModel):
+    body: str
+    received_at: datetime
+    amount: float
+    type: TransactionType
+    note: str
+    already_imported: bool
+
+
+class SmsImportPreviewResponse(BaseModel):
+    candidates: list[SmsImportCandidate]
+
+
+class SmsImportConfirmRequest(BaseModel):
+    messages: list[SmsMessageIn] = Field(min_length=1, max_length=300)

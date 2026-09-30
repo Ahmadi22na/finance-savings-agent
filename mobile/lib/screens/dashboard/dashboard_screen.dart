@@ -15,6 +15,7 @@ import '../chat/chat_screen.dart';
 import '../suggestions/suggestions_screen.dart';
 import '../goal_path/goal_path_screen.dart';
 import '../add_goal/add_goal_screen.dart';
+import '../sms_import/sms_import_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -123,6 +124,14 @@ class DashboardScreen extends ConsumerWidget {
             _GoalsSection(accentColor: accentColor),
             const SizedBox(height: 28),
             const Text('آخر المعاملات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SmsImportScreen()),
+              ),
+              icon: const Icon(Icons.sms_outlined, size: 18),
+              label: const Text('استورد من رسائل البنك'),
+            ),
             const SizedBox(height: 8),
             transactionsAsync.when(
               loading: () => const Center(
