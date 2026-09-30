@@ -40,6 +40,31 @@ def get_unallocated_amount(db: Session, transaction: Transaction) -> float:
     return max(0.0, float(transaction.amount) - get_allocated_amount(db, transaction.id))
 
 
+def unallocated_amounts_for(db: Session, transactions: list[Transaction]) -> dict[uuid.UUID, float]:
+    """
+    نفس get_unallocated_amount بس لقائمة كاملة بطلب SQL واحد (GROUP BY) بدل
+    طلب لكل معاملة — مهم لأن الداشبورد صار يجيب حتى 100 معاملة عشان بانر
+    "دخل بانتظار التوزيع" (استيراد الرسائل ممكن يضيف عشرات الدخول دفعة وحدة).
+    المفتاح: id المعاملة، بس لمعاملات الدخل — المصروف مش موجود بالنتيجة (= 0).
+    """
+    income_ids = [t.id for t in transactions if t.type == TransactionType.INCOME]
+    if not income_ids:
+        return {}
+
+    rows = (
+        db.query(IncomeAllocation.transaction_id, func.coalesce(func.sum(IncomeAllocation.amount), 0))
+        .filter(IncomeAllocation.transaction_id.in_(income_ids))
+        .group_by(IncomeAllocation.transaction_id)
+        .all()
+    )
+    allocated = {transaction_id: float(total) for transaction_id, total in rows}
+    return {
+        t.id: max(0.0, float(t.amount) - allocated.get(t.id, 0.0))
+        for t in transactions
+        if t.type == TransactionType.INCOME
+    }
+
+
 def allocate_income(
     db: Session, user: User, transaction_id: uuid.UUID, data: IncomeAllocationRequest
 ) -> tuple[Transaction, list[Goal]]:

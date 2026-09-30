@@ -574,3 +574,30 @@ def test_partial_allocation_shows_correct_progress(client, db_session):
     assert updated_goal["current_amount"] == 15.0
     assert updated_goal["status"] == "active"
     assert updated_goal["progress_percentage"] == 15.0
+
+
+def test_list_transactions_reports_unallocated_amount_per_transaction(client, db_session):
+    """قائمة المعاملات (مش بس الإنشاء) لازم ترجّع unallocated_amount صح — الداشبورد
+    يعتمد عليها لبانر "دخل بانتظار التوزيع"."""
+    headers, user = register_with_persona(client, db_session, "0790010029")
+    goal = client.post("/api/v1/goals", headers=headers, json={
+        "title": "هدف اختبار", "target_amount": 500,
+    }).json()
+    income = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 100, "type": "income", "note": "راتب",
+    }).json()
+    untouched_income = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 30, "type": "income", "note": "شغل يوم",
+    }).json()
+    expense = client.post("/api/v1/transactions/quick-log", headers=headers, json={
+        "amount": 20, "type": "expense", "note": "بقالة",
+    }).json()
+
+    client.post(f"/api/v1/transactions/{income['id']}/allocate", headers=headers, json={
+        "allocations": [{"goal_id": goal["id"], "amount": 40}],
+    })
+
+    listing = {t["id"]: t for t in client.get("/api/v1/transactions", headers=headers).json()}
+    assert listing[income["id"]]["unallocated_amount"] == 60.0
+    assert listing[untouched_income["id"]]["unallocated_amount"] == 30.0
+    assert listing[expense["id"]]["unallocated_amount"] == 0

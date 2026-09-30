@@ -6,6 +6,7 @@ import '../core/api_client.dart';
 import '../models/transaction.dart';
 import '../models/receipt_scan_result.dart';
 import '../models/sms_parse_result.dart';
+import '../models/sms_import.dart';
 
 class TransactionService {
   final ApiClient _apiClient;
@@ -93,6 +94,37 @@ class TransactionService {
         'text': text,
       });
       return SmsParseResult.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// يحلل رسائل مقروءة من صندوق الوارد ويرجّع معاملات مقترحة (ما بيحفظ شي).
+  Future<List<SmsImportCandidate>> previewSmsImport(List<RawSms> messages) async {
+    try {
+      final response = await _apiClient.dio.post('/transactions/sms-import/preview', data: {
+        'messages': messages.map((m) => m.toJson()).toList(),
+      });
+      final items = response.data['candidates'] as List;
+      return items
+          .map((json) => SmsImportCandidate.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// ينشئ معاملات فعلية من الرسائل يلي اختارها المستخدم. السيرفر بيعيد تحليل
+  /// النص بنفسه، وبيتجاهل الرسائل يلي انستوردت قبل (منع التكرار بالبصمة).
+  Future<List<Transaction>> confirmSmsImport(List<RawSms> messages) async {
+    try {
+      final response = await _apiClient.dio.post('/transactions/sms-import/confirm', data: {
+        'messages': messages.map((m) => m.toJson()).toList(),
+      });
+      final items = response.data as List;
+      return items
+          .map((json) => Transaction.fromJson(json as Map<String, dynamic>))
+          .toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
