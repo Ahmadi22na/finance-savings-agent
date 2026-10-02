@@ -1,4 +1,4 @@
-/// يطابق app/schemas/agent_action.py -> AgentActionOut بالـ Backend.
+
 class AgentAction {
   final String id;
   final String actionType; // suggest_category_correction | suggest_goal_contribution

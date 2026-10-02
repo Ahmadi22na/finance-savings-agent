@@ -31,9 +31,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   @override
   void initState() {
     super.initState();
-    // بدون هالمستمعين، الشاشة ما "بتعرف" إنه المستخدم كتب شي بحقول الهدف
-    // والمبلغ، فزر "يلا نبدأ" كان يضل معطّل حتى لو الحقول معبّية صح —
-    // setState(() {}) هون بس بيخلي build() يعيد فحص _canProceed من جديد.
+
+
+
     _goalTitleController.addListener(() => setState(() {}));
     _goalAmountController.addListener(() => setState(() {}));
   }
@@ -46,8 +46,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     super.dispose();
   }
 
-  /// هل يقدر المستخدم يكمل من الصفحة الحالية؟ نفس فكرة الـ Validation
-  /// بالـ Backend (model_validator بـ OnboardingComplete) بس على مستوى كل خطوة.
+
+
   bool get _canProceed {
     switch (_currentPage) {
       case 0:
@@ -115,7 +115,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // مؤشر التقدم البسيط (3 نقاط) — نفس فكرة المعاينة الأولى يلي عرضناها بالبداية
+
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Row(
@@ -138,7 +138,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
             Expanded(
               child: PageView(
                 controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(), // التنقل بس عبر الأزرار، مش سحب
+                physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (index) => setState(() => _currentPage = index),
                 children: [
                   PersonaSelectPage(

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_client.dart';
 import 'providers.dart';
 
-/// StateNotifier بسيط يدير حالة عملية تسجيل الدخول/التسجيل (AsyncValue بيغطي
-/// الحالات الثلاث: تحميل، نجاح، خطأ — بدل ما كل شاشة تدير Booleans يدويًا).
+
+
 class AuthController extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   AuthController(this._ref) : super(const AsyncValue.data(null));

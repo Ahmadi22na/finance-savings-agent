@@ -18,13 +18,13 @@ class SuggestionsScreen extends ConsumerStatefulWidget {
 
 class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
   bool _isChecking = true;
-  final _respondingIds = <String>{}; // نمنع ضغط مزدوج على نفس البطاقة وهي قيد التنفيذ
+  final _respondingIds = <String>{};
 
   @override
   void initState() {
     super.initState();
-    // أول ما تفتح الشاشة، منفحص فعليًا إذا في اقتراحات جديدة تستاهل (نفس فكرة
-    // فحص الـ Nudge عند فتح الشات) — هون بس بيصير أي استدعاء AI فعلي بهالميزة.
+
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForNew());
   }
 
@@ -33,7 +33,7 @@ class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
       final agentService = ref.read(agentServiceProvider);
       await agentService.checkForNewActions();
     } catch (_) {
-      // فشل الفحص مش شي حرج — الشاشة بتعرض أي اقتراحات موجودة أصلاً بهدوء
+
     } finally {
       if (mounted) {
         setState(() => _isChecking = false);
@@ -48,14 +48,14 @@ class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
       final agentService = ref.read(agentServiceProvider);
       if (confirm) {
         await agentService.confirmAction(action.id);
-        // التطبيق الفعلي ممكن يغيّر أهداف أو معاملات — نحدّث الـ Dashboard تلقائيًا
+
         ref.invalidate(goalsListProvider);
         ref.invalidate(recentTransactionsProvider);
 
-        // اقتراح دخل اتأكد؟ نفس القرار المتفق عليه — نسأل المستخدم صراحة
-        // وين بدو يحط هالدخل، بغض النظر إنه جاي من الشات مش من التسجيل
-        // السريع. الـ confirm response ما فيه الـ Transaction نفسها، فنجيب
-        // آخر معاملة (هي بالضبط يلي بس انخلقت من التأكيد).
+
+
+
+
         if (action.actionType == 'suggest_income_log' && mounted) {
           try {
             final transactions =
@@ -64,7 +64,7 @@ class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
               await maybePromptIncomeAllocation(context, ref, transactions.first);
             }
           } catch (_) {
-            // مش حرج — المستخدم يقدر يوزع لاحقًا لو حبينا نضيف شاشة لهيك مستقبلًا
+
           }
         }
       } else {

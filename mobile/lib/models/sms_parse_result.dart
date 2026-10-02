@@ -2,7 +2,7 @@ class SmsParseResult {
   final double? amount;
   final String? type; // 'income' | 'expense' | null
   final String? note;
-  // false لو النص ما طابق أي نمط بنك مدعوم أصلًا
+
   final bool parsed;
 
   SmsParseResult({

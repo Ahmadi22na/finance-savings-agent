@@ -40,8 +40,8 @@ class GoalProgressCard extends StatelessWidget {
                     ),
                     if (goal.isRecurring) ...[
                       const SizedBox(width: 6),
-                      // شارة "مصروف ثابت شهري" — نفس كارت الخطة العادية بالضبط،
-                      // بس هاي الشارة توضح إنه بيتصفّر تلقائيًا كل شهر.
+
+
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(

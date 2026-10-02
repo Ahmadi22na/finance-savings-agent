@@ -3,7 +3,7 @@ class ReceiptScanResult {
   final String? categoryId;
   final String? categoryName;
   final String? note;
-  // false لو الصورة مش واضحة أو مش فاتورة أصلًا — ما قدرنا نقرأ حتى المبلغ
+
   final bool readable;
 
   ReceiptScanResult({

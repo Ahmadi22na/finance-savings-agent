@@ -93,8 +93,8 @@ class DashboardScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          // إعادة تحميل الأهداف والمعاملات — بينفع لما تسجّل معاملة جديدة
-          // وتحب تتأكد إنها انعكست بالـ Dashboard
+
+
           ref.invalidate(goalsListProvider);
           ref.invalidate(recentTransactionsProvider);
         },
@@ -155,7 +155,7 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
             ),
-            const SizedBox(height: 80), // مساحة إضافية تحت عشان الـ FAB ما يغطي آخر عنصر
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -163,12 +163,12 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-/// قسم الأهداف بالداشبورد — الخطط النشطة قابلة للسحب لإعادة ترتيب أولويتها،
-/// والخطط المنجزة/المتروكة تُعرض بعدها بدون إمكانية سحب (أولويتها غير مهمة).
+
+
 ///
-/// السحب متفائل (Optimistic): بيحدّث الترتيب محليًا فورًا، وبالخلفية بيبعت
-/// الترتيب الجديد للسيرفر. لو السيرفر رفض لأي سبب، منرجع نجيب الترتيب
-/// الحقيقي منه (invalidate) بدل ما نسيب الشاشة تعرض شي مش متزامن فعليًا.
+
+
+
 class _GoalsSection extends ConsumerStatefulWidget {
   final Color accentColor;
   const _GoalsSection({required this.accentColor});
@@ -180,11 +180,11 @@ class _GoalsSection extends ConsumerStatefulWidget {
 class _GoalsSectionState extends ConsumerState<_GoalsSection> {
   List<Goal>? _localActiveOrder;
 
-  // قبل: كنا نقارن IDs بس (كمجموعة، بدون ترتيب ولا محتوى) — هيك أي تغيير
-  // حقيقي بخطة موجودة أصلاً (توزيع دخل جزئي عليها مثلاً: current_amount
-  // بيتغيّر بس الخطة تضل نشطة، نفس مجموعة الـ IDs بالظبط) كان يُقرأ خطأ
-  // كـ"ولا شي تغيّر" فنعرض النسخة المحلية القديمة المخزّنة، بينما الباكيند
-  // فعليًا حدّث القيمة. لازم نقارن المحتوى الفعلي (والترتيب) مش بس الهوية.
+
+
+
+
+
   bool _matchesServer(List<Goal> local, List<Goal> server) {
     if (local.length != server.length) return false;
     for (var i = 0; i < local.length; i++) {
@@ -221,10 +221,10 @@ class _GoalsSectionState extends ConsumerState<_GoalsSection> {
         final serverActive = goals.where((g) => g.status == 'active').toList();
         final others = goals.where((g) => g.status != 'active').toList();
 
-        // نحدّث النسخة المحلية بس لو محتوى الخطط النشطة (أو ترتيبها) تغيّر
-        // فعليًا عن آخر نسخة عندنا — مش بس مجموعة الـ IDs. هيك أي بيانات
-        // حقيقية جاية من السيرفر (تقدم، أولوية، ...) دايمًا بتنعكس فورًا،
-        // وبنفس الوقت ما منمسح سحب لسا ما وصل رد تأكيده من السيرفر.
+
+
+
+
         if (_localActiveOrder == null || !_matchesServer(_localActiveOrder!, serverActive)) {
           _localActiveOrder = serverActive;
         }
@@ -238,16 +238,16 @@ class _GoalsSectionState extends ConsumerState<_GoalsSection> {
                 physics: const NeverScrollableScrollPhysics(),
                 buildDefaultDragHandles: false,
                 itemCount: activeGoals.length,
-                // onReorderItem بدل onReorder المهجورة — هاي بتصحح newIndex
-                // تلقائيًا (مش محتاجين نعدلها يدويًا زي قبل).
+
+
                 onReorderItem: (oldIndex, newIndex) {
                   setState(() {
                     final moved = activeGoals.removeAt(oldIndex);
                     activeGoals.insert(newIndex, moved);
                   });
-                  // catchError لازم يرجّع نفس نوع الـ Future (List<Goal>)، فمنرجّع
-                  // لستة فاضية بحالة الفشل — القيمة المرجعة هون مش مهمة أصلاً،
-                  // لأن whenComplete جاي بعدها رح يجيب الترتيب الحقيقي من السيرفر.
+
+
+
                   ref
                       .read(goalServiceProvider)
                       .reorderGoals(activeGoals.map((g) => g.id).toList())
