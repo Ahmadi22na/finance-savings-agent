@@ -19,19 +19,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   bool _isSending = false;
   bool _checkedNudge = false;
-  int? _speakingIndex; // index الرسالة يلي عم تتنطق هلأ، أو null
+  int? _speakingIndex;
 
   @override
   void initState() {
     super.initState();
-    // أول ما تفتح الشاشة، منفحص إذا رشيد عنده شي يبادر فيه (Nudge) —
-    // نفس فكرة /agent/nudge بالضبط، هون منستدعيها أول ما المستخدم يدخل الشات
+
+
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkForNudge());
   }
 
   @override
   void dispose() {
-    // ما نسيب صوت رشيد يضل يحكي بعد ما المستخدم طلع من شاشة الشات
+
     ref.read(ttsServiceProvider).stop();
     _textController.dispose();
     _scrollController.dispose();
@@ -76,7 +76,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _scrollToBottom();
       }
     } catch (_) {
-      // فشل فحص الـ Nudge مش شي حرج — الشات بيضل يشتغل عادي بدونه
+
     } finally {
       if (mounted) setState(() => _checkedNudge = true);
     }
@@ -206,7 +206,7 @@ class _ChatBubble extends StatelessWidget {
   final Color accentColor;
   final String? personaImagePath;
   final bool isSpeaking;
-  final VoidCallback? onToggleSpeak; // null لرسائل المستخدم (ما بننطقها)
+  final VoidCallback? onToggleSpeak;
 
   const _ChatBubble({
     required this.message,
@@ -266,7 +266,7 @@ class _ChatBubble extends StatelessWidget {
       return Align(alignment: AlignmentDirectional.centerEnd, child: bubble);
     }
 
-    // رسائل رشيد: صورة صغيرة له جنب الفقاعة، عشان الشخصية تبان حتى بالنص
+
     return Align(
       alignment: AlignmentDirectional.centerStart,
       child: Row(

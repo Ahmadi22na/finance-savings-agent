@@ -1,5 +1,5 @@
-/// رسالة خام مقروءة من صندوق الوارد — هاد كل شي بيطلع من الجهاز للسيرفر
-/// (نص الرسالة ووقت استلامها)، وبعد فلترة محلية بتبقّي بس الرسائل المالية.
+
+
 class RawSms {
   final String body;
   final DateTime receivedAt;
@@ -12,8 +12,8 @@ class RawSms {
       };
 }
 
-/// معاملة مقترحة من رسالة — السيرفر هو يلي حلّلها (المبلغ والنوع)،
-/// الموبايل بس بيعرضها ويخلي المستخدم يختار.
+
+
 class SmsImportCandidate {
   final String body;
   final DateTime receivedAt;
@@ -42,7 +42,7 @@ class SmsImportCandidate {
     );
   }
 
-  /// للتأكيد بنرجّع نفس النص ووقته بالضبط — السيرفر بيعيد التحليل وبيحسب
-  /// نفس البصمة، فما في داعي نبعت المبلغ أو النوع أبدًا.
+
+
   RawSms toRawSms() => RawSms(body: body, receivedAt: receivedAt);
 }

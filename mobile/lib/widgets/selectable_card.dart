@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// بطاقة اختيار عامة (Persona، نوع الدخل، أي خيار مستقبلي) — نفس الشكل
-/// البصري بكل شاشات الـ Onboarding عشان التجربة متناسقة.
+
+
 class SelectableCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;

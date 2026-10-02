@@ -41,8 +41,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     state.whenOrNull(
       data: (_) {
-        // بعد التسجيل مباشرة، المستخدم دايمًا لسا ما خلّص Onboarding —
-        // فمنوديه على شاشات اختيار الشخصية وأول هدف مباشرة
+
+
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const OnboardingFlowScreen()),
           (route) => false,

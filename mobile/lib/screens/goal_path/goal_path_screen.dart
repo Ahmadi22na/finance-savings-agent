@@ -6,15 +6,15 @@ import '../../core/dashboard_providers.dart';
 import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 
-/// شاشة "طريق الهدف" — شكل ثابت دايمًا (10 مراحل بنفس التخطيط بالضبط)،
-/// بس محتواه (كم مرحلة مكتملة، وهل ماشي حسب الجدول الزمني) مبني على بيانات
-/// هدف المستخدم الفعلية.
+
+
+
 ///
-/// ملاحظة تقنية مهمة (إصلاح): النسخة الأولى استخدمت Row + MainAxisAlignment
-/// لعمل التعرّج، وهاد انكسر لأن التطبيق كامل تحت Directionality.rtl —
-/// start/end بيصير معكوس بصريًا بالـ RTL. الحل: إحداثيات x صريحة بالبيكسل
-/// (Stack + Positioned) بدل الاعتماد على alignment منطقي، بحيث الشكل ثابت
-/// دايمًا بغض النظر عن اتجاه اللغة.
+
+
+
+
+
 class GoalPathScreen extends ConsumerStatefulWidget {
   final Goal goal;
   const GoalPathScreen({super.key, required this.goal});
@@ -83,14 +83,14 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              reverse: true, // نبلش من تحت (مرحلة 1) ونطلع فوق (الهدف)
+              reverse: true,
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: SizedBox(
                 width: pathWidth,
                 height: pathHeight,
                 child: Stack(
                   children: [
-                    // خط الطريق الفعلي — يُرسم أول قبل الدوائر عشان يظهر تحتها
+
                     CustomPaint(
                       size: Size(pathWidth, pathHeight),
                       painter: _PathPainter(
@@ -127,8 +127,8 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> {
     );
   }
 
-  /// موقع X ثابت لكل رقم مرحلة — تعرّج بين يسار ويمين المسار، بنفس النمط
-  /// دايمًا (شكل ثابت) بغض النظر عن بيانات الهدف.
+
+
   double _xPositionFor(int stageNumber, double pathWidth) {
     final isLeftSide = stageNumber.isOdd;
     return isLeftSide ? 0 : (pathWidth - _nodeSize);
@@ -210,9 +210,9 @@ class _ScheduleInfo {
   _ScheduleInfo({required this.onTrack, required this.label});
 }
 
-/// يرسم خط الطريق الفعلي بين كل مرحلتين متتاليتين — الجزء المكتمل ملوّن
-/// بلون الشخصية، والباقي رمادي فاتح. هذا بالضبط الجزء يلي كان ناقص وخلى
-/// الشاشة تبان "دوائر عائمة" بدل "طريق" حقيقي.
+
+
+
 class _PathPainter extends CustomPainter {
   final int stageCount;
   final int completedStages;

@@ -13,12 +13,12 @@ import '../../widgets/income_allocation_sheet.dart';
 
 enum _Stage { loading, permissionDenied, permanentlyDenied, nothingFound, ready, importing, failed }
 
-/// استيراد معاملات من رسائل البنك الموجودة أصلاً بصندوق الوارد (أندرويد فقط).
+
 ///
-/// الخصوصية (مقصودة بالتصميم):
-/// 1. ما بنقرا الصندوق إلا بعد ما المستخدم يفتح هالشاشة ويوافق على الصلاحية.
-/// 2. بنفلتر على الجهاز نفسه: ما بيطلع للسيرفر إلا رسائل فيها JOD أو "دينار".
-/// 3. المستخدم بيشوف القائمة ويختار — ما بينحفظ شي بدون اختياره.
+
+
+
+
 class SmsImportScreen extends ConsumerStatefulWidget {
   const SmsImportScreen({super.key});
 
@@ -27,9 +27,9 @@ class SmsImportScreen extends ConsumerStatefulWidget {
 }
 
 class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
-  static const _scanLimit = 500; // آخر كم رسالة نقرا من الصندوق
-  static const _maxDays = 90; // ما نرجع لأبعد من 3 شهور
-  static const _maxUpload = 300; // نفس سقف السيرفر
+  static const _scanLimit = 500;
+  static const _maxDays = 90;
+  static const _maxUpload = 300;
   static const _financialHints = ['jod', 'دينار'];
 
   _Stage _stage = _Stage.loading;
@@ -137,8 +137,8 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
     }
   }
 
-  /// القرار المتفق عليه: الدخل دايمًا نسأل المستخدم وين بدو يحطه. لو انستورد
-  /// أكتر من دخل، منسأل مرة وحدة "بدك توزعهم هلأ؟" بدل ما نفاجئه بـ Sheet ورا Sheet.
+
+
   Future<void> _offerAllocation(List<Transaction> incomes) async {
     if (incomes.isEmpty || !mounted) return;
 

@@ -1,6 +1,6 @@
 import 'category.dart';
 
-/// يطابق app/schemas/transaction.py -> TransactionOut بالـ Backend.
+
 class Transaction {
   final String id;
   final double amount;
@@ -11,7 +11,7 @@ class Transaction {
   final Category? category;
   final bool aiSuggested;
   final double? suggestionConfidence;
-  final double unallocatedAmount; // بس لمعاملات الدخل — قديش لسا ما اتوزع
+  final double unallocatedAmount;
 
   Transaction({
     required this.id,
