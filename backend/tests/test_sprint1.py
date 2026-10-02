@@ -2,6 +2,21 @@
 import pytest
 
 from app.models.category import Category, CategoryType
+from app.services import transaction_service
+from app.services.categorizer.rule_based import RuleBasedCategorizer
+
+
+@pytest.fixture(autouse=True)
+def _force_rule_based_categorizer(monkeypatch):
+    """
+    هاي الاختبارات تحديدًا بتفحص منطق RuleBasedCategorizer (تطابق كلمات
+    مفتاحية) بالتحديد — مش "أيًا كان محرك التصنيف المفعّل حاليًا". من بعد
+    ما صار factory.get_categorizer() يختار GeminiCategorizer تلقائيًا لو
+    GEMINI_API_KEY موجود بالبيئة، صارت هاي الاختبارات (بدون هالفحص) تعتمد
+    عن غير قصد على مفتاح AI حقيقي شغال وقت تشغيل pytest — فاشلة لو المفتاح
+    غير صالح، وبطيئة/غير حتمية حتى لو اشتغل. منفرض المحرك صراحة.
+    """
+    monkeypatch.setattr(transaction_service, "get_categorizer", lambda: RuleBasedCategorizer())
 
 
 @pytest.fixture(autouse=True)
