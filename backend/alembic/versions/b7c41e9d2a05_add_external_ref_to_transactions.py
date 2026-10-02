@@ -21,9 +21,9 @@ def upgrade() -> None:
         'transactions',
         sa.Column('external_ref', sa.String(length=64), nullable=True),
     )
-    # فريد لكل مستخدم — نفس الرسالة (نفس البصمة) ما تنستورد مرتين لنفس الشخص،
-    # بس مستخدم ثاني يقدر يستوردها عادي. قيم NULL (المعاملات اليدوية/OCR) مش
-    # مقيّدة أبدًا لأن NULL ما بتتساوى مع NULL بقيود UNIQUE.
+
+
+
     op.create_unique_constraint(
         'uq_transactions_user_external_ref', 'transactions', ['user_id', 'external_ref']
     )

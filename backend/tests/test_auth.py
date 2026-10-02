@@ -1,4 +1,4 @@
-"""اختبارات تدفق التسجيل والدخول — تستخدم client من conftest.py المشترك."""
+"""Module documentation."""
 
 
 def test_register_creates_user_and_returns_tokens(client):

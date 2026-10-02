@@ -19,8 +19,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-# جدول مؤقت (metadata فقط) للتعامل مع بيانات categories بدون الاعتماد على الـ ORM Model،
-# لأن الـ Model ممكن يتغيّر مستقبلاً بينما هالـ migration لازم يضل يشتغل بنفس الشكل دايمًا.
+
+
 categories_table = sa.table(
     "categories",
     sa.column("id", UUID(as_uuid=True)),

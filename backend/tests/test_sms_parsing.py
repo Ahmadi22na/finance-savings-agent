@@ -1,4 +1,4 @@
-"""اختبارات تحليل رسائل CliQ البنكية (Sprint 9 — SMS Parsing، نمط Copy-Paste)."""
+"""Module documentation."""
 import pytest
 
 
@@ -11,7 +11,7 @@ def get_auth_headers(client, phone="0790030001"):
 
 
 def test_parse_sms_recognizes_cliq_received_message(client, db_session):
-    """نص حقيقي بالضبط زي ما بعته أحمد."""
+    """Test parse sms recognizes cliq received message documentation."""
     headers = get_auth_headers(client)
     text = "Successfully received 4.500 JOD from 00962781330482 Current balance JOD4.760 JOD."
 
@@ -40,7 +40,7 @@ def test_parse_sms_recognizes_cliq_transfer_message(client, db_session):
 
 
 def test_parse_sms_handles_unrecognized_text(client, db_session):
-    """رسالة/نص مش من نمط مدعوم — لازم يرجّع parsed=False، مش يخترع أرقام."""
+    """Test parse sms handles unrecognized text documentation."""
     headers = get_auth_headers(client)
     response = client.post("/api/v1/transactions/parse-sms", headers=headers, json={
         "text": "هلا كيفك شو أخبارك اليوم؟",
@@ -52,7 +52,7 @@ def test_parse_sms_handles_unrecognized_text(client, db_session):
 
 
 def test_parse_sms_handles_amount_with_thousands_separator(client, db_session):
-    """مبلغ فيه فاصلة آلاف (زي 1,250.500) — لازم يتحول لرقم صح."""
+    """Test parse sms handles amount with thousands separator documentation."""
     headers = get_auth_headers(client)
     text = "Successfully received 1,250.500 JOD from 0791234567 Current balance JOD5,000.000 JOD."
 
@@ -64,7 +64,7 @@ def test_parse_sms_handles_amount_with_thousands_separator(client, db_session):
 
 
 def test_parse_sms_never_creates_a_transaction(client, db_session):
-    """أهم قرار تصميم بهالميزة، نفس OCR بالظبط: التحليل لحاله ما لازم ينشئ معاملة."""
+    """Test parse sms never creates a transaction documentation."""
     headers = get_auth_headers(client)
     client.post("/api/v1/transactions/parse-sms", headers=headers, json={
         "text": "Successfully received 4.500 JOD from 00962781330482 Current balance JOD4.760 JOD.",
@@ -77,4 +77,4 @@ def test_parse_sms_never_creates_a_transaction(client, db_session):
 def test_parse_sms_rejects_too_short_text(client, db_session):
     headers = get_auth_headers(client)
     response = client.post("/api/v1/transactions/parse-sms", headers=headers, json={"text": "ok"})
-    assert response.status_code == 422  # min_length=3 بالـ schema
+    assert response.status_code == 422

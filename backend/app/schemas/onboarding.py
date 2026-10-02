@@ -7,10 +7,7 @@ from app.models.user import IncomeType
 
 
 class OnboardingComplete(BaseModel):
-    """
-    يستقبل كل مخرجات شاشات الـ Onboarding الأربع بطلب واحد:
-    نوع الدخل، الشخصية المختارة، وأول هدف مالي.
-    """
+    """Onboardingcomplete documentation."""
     income_type: IncomeType
     persona_id: uuid.UUID
     goal_title: str = Field(min_length=2, max_length=150)

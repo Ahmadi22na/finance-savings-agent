@@ -25,7 +25,7 @@ from app.agent.providers.factory import get_ai_provider
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
-MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024  # 10 ميغا — كافي جدًا لصورة فاتورة بجودة عادية
+MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024
 
 
 def _to_transaction_out(db: Session, transaction) -> TransactionOut:
@@ -40,11 +40,7 @@ def quick_log_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    التسجيل السريع — المسار الأهم بالتطبيق كامل.
-    - وصل category_id؟ → حفظ فوري بدون أي معالجة إضافية (مسار الأيقونات)
-    - ما وصل category_id بس وصل note؟ → محرك التصنيف الذكي يحاول يخمّن (مسار النص)
-    """
+    """Quick log transaction documentation."""
     transaction, ai_suggested, confidence = transaction_service.create_quick_log_transaction(
         db, current_user, data
     )
@@ -61,7 +57,7 @@ def list_transactions(
     current_user: User = Depends(get_current_user),
 ):
     transactions = transaction_service.list_transactions_for_user(db, current_user, limit=limit)
-    # طلب SQL واحد لكل unallocated بدل طلب لكل معاملة (N+1)
+
     unallocated = income_allocation_service.unallocated_amounts_for(db, transactions)
     results = []
     for transaction in transactions:
@@ -77,12 +73,7 @@ async def scan_receipt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    يقرأ صورة فاتورة عبر Gemini Vision ويرجّع مسودة (مبلغ + تصنيف مقترح +
-    ملاحظة) — ما بيحفظ أي شي. الموبايل يعبّي فيها شاشة التسجيل السريع
-    مسبقًا، والمستخدم يراجعها ويحفظها بنفسه عبر /transactions/quick-log
-    العادي، بالضبط متل أي تسجيل يدوي.
-    """
+    """Scan receipt documentation."""
     if file.content_type not in receipt_service.SUPPORTED_MIME_TYPES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -107,10 +98,7 @@ def parse_sms(
     data: SmsParseRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """
-    يحلل نص رسالة بنكية ملصوقة يدويًا (Copy-Paste، بدون أي صلاحية قراءة
-    رسائل) ويرجّع مسودة — نفس فلسفة /scan-receipt بالضبط، ما بيحفظ أي شي.
-    """
+    """Parse sms documentation."""
     parsed = sms_parser_service.parse_sms(data.text)
     if parsed is None:
         return SmsParseResult(amount=None, type=None, note=None, parsed=False)
@@ -124,10 +112,7 @@ def preview_sms_import(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    يحلل رسائل مقروءة من صندوق الوارد (بعد فلترة محلية على الموبايل) ويرجّع
-    المعاملات المكتشفة مع علامة already_imported — ما بيحفظ أي شي.
-    """
+    """Preview sms import documentation."""
     candidates = sms_import_service.preview_import(db, current_user, data.messages)
     return SmsImportPreviewResponse(candidates=candidates)
 
@@ -138,11 +123,7 @@ def confirm_sms_import(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    ينشئ معاملات فعلية من الرسائل يلي اختارها المستخدم. السيرفر بيعيد تحليل
-    نص كل رسالة بنفسه (ما بيثق بأي رقم من الموبايل)، وبيتجاهل يلي انستوردت
-    قبل.
-    """
+    """Confirm sms import documentation."""
     created = sms_import_service.confirm_import(db, current_user, data.messages)
     return [_to_transaction_out(db, t) for t in created]
 
@@ -154,11 +135,7 @@ def allocate_income(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    توزيع معاملة دخل واحدة على خطة أو أكتر — دايمًا بقرار صريح من المستخدم
-    (ما في auto-route تلقائي، هيك قرر أحمد). بتقبل توزيع جزئي (مبلغ أقل من
-    كامل الدخل) — الباقي يضل unallocated لحد ما يوزعه المستخدم لاحقًا.
-    """
+    """Allocate income documentation."""
     transaction, updated_goals = income_allocation_service.allocate_income(
         db, current_user, transaction_id, data
     )

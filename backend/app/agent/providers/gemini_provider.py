@@ -1,16 +1,4 @@
-"""
-تطبيق Gemini لواجهة BaseAIProvider.
-
-ملاحظة مهمة (أغسطس 2026): جوجل بتنتقل حاليًا من مفاتيح "AIza" لمفاتيح "AQ." الجديدة،
-وبعض الحسابات بتواجه خطأ 401 (ACCESS_TOKEN_TYPE_UNSUPPORTED) حتى مع الطريقة الرسمية —
-هذا مش خطأ بالكود عندنا، مشكلة معروفة وموثقة من جوجل نفسها. لهيك منلتقط هالخطأ
-تحديدًا ومنرجع رسالة عربية واضحة تشرح الوضع، بدل ما المستخدم يشوف Exception خام.
-
-ملاحظة ثانية (سبتمبر 2026): أحيانًا الموديل بيرجّع 503 UNAVAILABLE مؤقت بسبب
-ضغط استخدام عالمي على جوجل نفسها (مش مشكلة بحسابنا أو كودنا) — جوجل حرفيًا
-بتقول "جرب كمان شوي" برسالة الخطأ. لهيك منعيد المحاولة تلقائيًا بضع مرات
-بفاصل بسيط قبل ما نستسلم ونرجّع رسالة اعتذار للمستخدم.
-"""
+"""Module documentation."""
 import time
 
 from google import genai
@@ -20,7 +8,7 @@ from app.agent.providers.base import BaseAIProvider, AgentReply, ConversationTur
 from app.config import settings
 
 MAX_RETRIES_ON_SERVER_ERROR = 3
-RETRY_DELAY_SECONDS = 2  # بسيط ومباشر — يكفي لأغلب حالات الازدحام المؤقت
+RETRY_DELAY_SECONDS = 2
 
 
 class GeminiProvider(BaseAIProvider):
@@ -33,9 +21,9 @@ class GeminiProvider(BaseAIProvider):
         user_message: str,
         history: list[ConversationTurn] | None = None,
     ) -> AgentReply:
-        # Gemini بيفهم المحادثة كقائمة "أدوار" (Turns) — "user" للمستخدم
-        # و"model" لرشيد. بدون هالبنية، ما عنده أي طريقة يعرف فيها شو
-        # انحكى قبل هالرسالة، حتى لو أرسلناها بنفس الـ HTTP request.
+
+
+
         contents = []
         for turn in (history or []):
             role = "user" if turn.is_from_user else "model"
@@ -61,11 +49,7 @@ class GeminiProvider(BaseAIProvider):
         return self._generate(system_prompt, contents)
 
     def _generate(self, system_prompt: str, contents: list[dict]) -> AgentReply:
-        """
-        منطق مشترك بين generate_reply وanalyze_image — نفس التعامل بالضبط مع
-        أخطاء المصادقة (401) والازدحام المؤقت (503 مع إعادة محاولة)، الفرق
-        الوحيد هو شكل contents (نص بس، أو نص + صورة).
-        """
+        """ generate documentation."""
         last_server_error: ServerError | None = None
 
         for attempt in range(1, MAX_RETRIES_ON_SERVER_ERROR + 1):
@@ -78,8 +62,8 @@ class GeminiProvider(BaseAIProvider):
                 return AgentReply(text=response.text)
 
             except ClientError as e:
-                # أخطاء المصادقة/الطلب غير الصحيح — إعادة المحاولة ما رح تصلحها،
-                # فنوقف فورًا بدل ما نضيّع وقت
+
+
                 if "ACCESS_TOKEN_TYPE_UNSUPPORTED" in str(e) or "401" in str(e):
                     return AgentReply(
                         text="رشيد مش قادر يوصل لعقله الذكي هلأ 🤖 — في مشكلة معروفة من جوجل بخصوص "
@@ -92,7 +76,7 @@ class GeminiProvider(BaseAIProvider):
                 )
 
             except ServerError as e:
-                # 503 وأمثالها غالبًا مؤقتة (ازدحام عالمي على جوجل) — تستاهل إعادة محاولة
+
                 last_server_error = e
                 if attempt < MAX_RETRIES_ON_SERVER_ERROR:
                     time.sleep(RETRY_DELAY_SECONDS)

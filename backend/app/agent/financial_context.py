@@ -1,11 +1,4 @@
-"""
-Financial Context — يجهّز معلومة "قديش مصاريف المستخدم الأساسية المتوقعة"
-عشان رشيد يستخدمها لما يبني اقتراح هدف كامل (Sprint 5).
-
-نفس فلسفة mood_engine.py بالضبط: منطق Rule-based بسيط يقرر "شو المعلومة
-المتاحة"، ورشيد (الـ AI) هو يلي بيقرر "كيف يستخدمها بالمحادثة" — مثلاً
-يسأل المستخدم مباشرة لو ما في بيانات كافية.
-"""
+"""Module documentation."""
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -14,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User
 
-# أقل عدد أيام بيانات تاريخية نعتبرها "كافية" لتقدير موثوق من تاريخ المعاملات
+
 MIN_HISTORY_DAYS_FOR_ESTIMATE = 14
 
 
@@ -22,11 +15,11 @@ MIN_HISTORY_DAYS_FOR_ESTIMATE = 14
 class EssentialsEstimate:
     monthly_amount: float | None
     source: str  # "profile" | "history" | "unavailable"
-    note: str  # وصف عربي مختصر يُدرج بالـ System Prompt لرشيد
+    note: str
 
 
 def get_essentials_estimate(db: Session, user: User) -> EssentialsEstimate:
-    # 1) لو عندنا رقم محفوظ بالبروفايل أصلاً (المستخدم قاله لرشيد قبل هيك) — نستخدمه
+
     if user.estimated_monthly_essentials is not None:
         return EssentialsEstimate(
             monthly_amount=float(user.estimated_monthly_essentials),
@@ -37,7 +30,7 @@ def get_essentials_estimate(db: Session, user: User) -> EssentialsEstimate:
             ),
         )
 
-    # 2) وإلا نجرب نقدّرها من تاريخ معاملاته الفعلي (لو عنده سجل كافي)
+
     cutoff = datetime.now(timezone.utc) - timedelta(days=MIN_HISTORY_DAYS_FOR_ESTIMATE)
     oldest_transaction = (
         db.query(Transaction)
@@ -67,7 +60,7 @@ def get_essentials_estimate(db: Session, user: User) -> EssentialsEstimate:
             ),
         )
 
-    # 3) ما في بيانات كافية إطلاقًا — رشيد لازم يسأل المستخدم مباشرة
+
     return EssentialsEstimate(
         monthly_amount=None,
         source="unavailable",

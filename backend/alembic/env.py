@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.config import settings
 from app.database.session import Base
-import app.models  # noqa: F401  — يضمن تسجيل كل الجداول قبل توليد الـ Migration
+import app.models
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)

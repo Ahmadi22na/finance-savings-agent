@@ -1,4 +1,4 @@
-"""اختبارات محرك التصنيف الذكي عبر Gemini + منطق الاختيار بالـ factory."""
+"""Module documentation."""
 import pytest
 
 from app.agent.providers.base import AgentReply
@@ -22,8 +22,7 @@ class FakeProvider:
 
 @pytest.fixture(autouse=True)
 def _clear_factory_cache():
-    """@lru_cache على get_categorizer بيحتفظ بأول نتيجة لكل عملية pytest —
-    لازم نصفّرها قبل وبعد كل اختبار هون عشان اختبارات الـ factory تكون مستقلة."""
+    """ clear factory cache documentation."""
     categorizer_factory.get_categorizer.cache_clear()
     yield
     categorizer_factory.get_categorizer.cache_clear()
@@ -36,7 +35,7 @@ def make_category(name="مطاعم"):
     )
 
 
-# ---------- منطق اختيار المحرك (factory) ----------
+
 
 def test_factory_uses_rule_based_when_no_gemini_key(monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
@@ -50,7 +49,7 @@ def test_factory_uses_gemini_when_key_present(monkeypatch):
     assert isinstance(engine, GeminiCategorizer)
 
 
-# ---------- GeminiCategorizer.suggest_category (وحدة معزولة، بدون شبكة حقيقية) ----------
+
 
 def test_suggests_category_from_valid_json_response(db_session):
     category = make_category()
@@ -80,7 +79,7 @@ def test_no_available_categories_returns_zero_confidence():
 
 
 def test_ignores_hallucinated_category_id(db_session):
-    """الموديل اخترع id مش موجود فعليًا بقائمتنا — لازم نتجاهله بدل ما نثق فيه."""
+    """Test ignores hallucinated category id documentation."""
     category = make_category()
     fake = FakeProvider('{"category_id": "not-a-real-uuid", "confidence": 0.8}')
     result = GeminiCategorizer(fake).suggest_category("شي ما", [category])

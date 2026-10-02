@@ -1,10 +1,4 @@
-"""
-إعداد مشترك لكل الاختبارات.
-المشكلة يلي هذا الملف بيحلها: كل ملف اختبار كان عنده محرك SQLite خاص فيه،
-وبما إنهم كلهم بيعدّلوا نفس app.dependency_overrides (لأن app واحد مشترك بين كل الملفات)،
-آخر ملف يتحمّل كان يفوز، وبيخلي بقية الملفات تشتغل ضد قاعدة بيانات فارغة (بدون جداول).
-الحل: محرك واحد مشترك هون، وكل الملفات تستورده بدل ما تعمل نسخته الخاصة فيها.
-"""
+"""Module documentation."""
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -36,7 +30,7 @@ app.dependency_overrides[get_db] = _override_get_db
 
 @pytest.fixture(autouse=True)
 def clean_tables():
-    """يصفّر كل الجداول قبل كل اختبار — عزل كامل بين الاختبارات بدون تكرار كود."""
+    """Clean tables documentation."""
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield

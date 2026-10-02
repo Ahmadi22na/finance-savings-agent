@@ -21,6 +21,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # نفس ملاحظة الـ Migration السابقة — PostgreSQL ما بيدعم حذف قيمة enum
-    # مباشرة، فما في تراجع تلقائي هون.
+
+
     pass

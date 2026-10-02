@@ -22,10 +22,10 @@ def upgrade() -> None:
         sa.Column("priority", sa.Integer(), nullable=False, server_default="0"),
     )
 
-    # الخطط الموجودة أصلاً كلها priority=0 هلأ (من الـ server_default) —
-    # هيك بيصير ترتيبها كلها متعادلة. نرتبها هون مرة وحدة حسب created_at
-    # (الأقدم = أولوية أعلى، رقم أصغر) لكل مستخدم على حدة، عشان أول ما
-    # يفتح المستخدم شاشة الخطط يلاقي ترتيب منطقي جاهز، مش عشوائي.
+
+
+
+
     connection = op.get_bind()
     connection.execute(sa.text("""
         UPDATE goals

@@ -19,7 +19,7 @@ CHAT_HISTORY_LIMIT = 20
 
 GOAL_PROPOSAL_PATTERN = re.compile(r"<<<GOAL_PROPOSAL>>>(.*?)<<<END>>>", re.DOTALL)
 ESSENTIALS_UPDATE_PATTERN = re.compile(r"<<<ESSENTIALS_UPDATE>>>(.*?)<<<END>>>", re.DOTALL)
-# جديد: بروتوكول تسجيل دخل ذكره المستخدم بالمحادثة (بدل ما ينفهم غلط كهدف جديد)
+
 INCOME_LOG_PATTERN = re.compile(r"<<<INCOME_LOG_PROPOSAL>>>(.*?)<<<END>>>", re.DOTALL)
 
 GOAL_CREATION_PROTOCOL_INSTRUCTIONS = """
@@ -166,13 +166,13 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
         if essentials_data:
             _handle_essentials_update(db, user, essentials_data)
 
-        # هون كان السبب الجذري: كنا نستدعي _handle_income_log_proposal() بـ
-        # reasoning مأخوذ من raw_reply_text فور ما نشيل كتلة الدخل بس —
-        # بس لسا كتلة GOAL_PROPOSAL (لو موجودة بنفس الرد، زي لما رشيد يسجل
-        # دخل ويقترح هدف بنفس الرسالة) ما انشالت بعد، فالنص الخام لكتلة
-        # الهدف كان يتسرب حرفيًا جوا reasoning اقتراح الدخل المعروض للمستخدم.
-        # الحل: نشيل كل الكتل أول، وبعدين نستخدم نفس النص النظيف الواحد
-        # كـ reasoning لأي اقتراح نتج، مهما كان عددهم بنفس الرد.
+
+
+
+
+
+
+
         income_data, raw_reply_text = _extract_and_strip_block(INCOME_LOG_PATTERN, raw_reply_text)
         goal_data, raw_reply_text = _extract_and_strip_block(GOAL_PROPOSAL_PATTERN, raw_reply_text)
 

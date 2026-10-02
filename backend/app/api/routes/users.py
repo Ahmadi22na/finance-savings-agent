@@ -9,5 +9,5 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
-    """أول Endpoint محمي بالتطبيق — أي طلب لازم يوصل توكن صالح بالـ Authorization header."""
+    """Get me documentation."""
     return current_user

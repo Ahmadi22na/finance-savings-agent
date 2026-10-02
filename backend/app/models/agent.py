@@ -34,9 +34,9 @@ class AgentActionType(str, enum.Enum):
     SUGGEST_BUDGET_ADJUSTMENT = "suggest_budget_adjustment"
     SUGGEST_GOAL_CONTRIBUTION = "suggest_goal_contribution"
     SUGGEST_GOAL_CREATION = "suggest_goal_creation"
-    # جديد: رشيد يقترح تسجيل دخل ذكره المستخدم بالمحادثة الحرة (مثال:
-    # "اشتغلت يوم واجاني 25 دينار") — بدل ما تضيع المعلومة أو تُفهم غلط
-    # كوصف هدف جديد.
+
+
+
     SUGGEST_INCOME_LOG = "suggest_income_log"
 
 

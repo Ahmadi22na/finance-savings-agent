@@ -6,10 +6,7 @@ from app.agent.mood_engine import MoodState
 
 
 class PersonaOut(BaseModel):
-    """
-    ما منرجع system_prompt هون إطلاقًا — هاي تفاصيل داخلية بين رشيد وGemini،
-    مو شي المفروض يشوفه المستخدم بشاشة اختيار الشخصية.
-    """
+    """Personaout documentation."""
     id: uuid.UUID
     key: str
     display_name: str

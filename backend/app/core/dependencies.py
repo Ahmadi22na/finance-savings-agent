@@ -1,6 +1,4 @@
-"""
-Dependencies مشتركة لـ FastAPI — بشكل رئيسي: التحقق من هوية المستخدم عبر الـ JWT.
-"""
+"""Module documentation."""
 import uuid
 
 from fastapi import Depends, HTTPException, status

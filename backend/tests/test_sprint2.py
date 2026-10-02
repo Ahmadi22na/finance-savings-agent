@@ -1,4 +1,4 @@
-"""اختبارات Sprint 2: الشخصيات (Personas)، الـ Onboarding، ومحرك الحالة المزاجية."""
+"""Module documentation."""
 import pytest
 from datetime import datetime, timedelta, timezone
 
@@ -40,7 +40,7 @@ def test_list_personas_returns_only_active(client):
     assert response.status_code == 200
     keys = [p["key"] for p in response.json()]
     assert "wise" in keys
-    assert "retired" not in keys  # الشخصية غير المفعّلة ما لازم تظهر
+    assert "retired" not in keys
 
 
 def test_persona_response_never_leaks_system_prompt(client):
@@ -50,7 +50,7 @@ def test_persona_response_never_leaks_system_prompt(client):
 
 
 def test_personas_endpoint_requires_no_auth(client):
-    """شاشة اختيار الشخصية تظهر أثناء الـ Onboarding — قبل ما نحتاج توكن."""
+    """Test personas endpoint requires no auth documentation."""
     response = client.get("/api/v1/personas")
     assert response.status_code == 200
 
@@ -139,12 +139,12 @@ def test_mood_concerned_when_overspending(client, db_session):
     user = _make_user(client, db_session, "0790006003")
     now = datetime.now(timezone.utc)
 
-    # معدل معتاد منخفض جدًا بالشهر الماضي (خارج نافذة الأسبوع الأخير)
+
     db_session.add(Transaction(
         user_id=user.id, amount=10, type=TransactionType.EXPENSE,
         source=TransactionSource.MANUAL, occurred_at=now - timedelta(days=20),
     ))
-    # صرف كبير جدًا بالأسبوع الأخير
+
     db_session.add(Transaction(
         user_id=user.id, amount=500, type=TransactionType.EXPENSE,
         source=TransactionSource.MANUAL, occurred_at=now - timedelta(days=1),

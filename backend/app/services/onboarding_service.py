@@ -14,7 +14,7 @@ def complete_onboarding(db: Session, user: User, data: OnboardingComplete) -> Us
             detail="المستخدم خلّص الـ Onboarding مسبقًا",
         )
 
-    # نتأكد إن الشخصية المطلوبة فعليًا موجودة ومفعّلة قبل ما نربطها بالمستخدم
+
     persona = persona_service.get_persona_or_404(db, data.persona_id)
 
     user.income_type = data.income_type

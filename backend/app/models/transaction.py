@@ -15,23 +15,19 @@ class TransactionType(str, enum.Enum):
 
 
 class TransactionSource(str, enum.Enum):
-    """
-    مصدر المعاملة — هذا الحقل هو قلب معمارية الـ Plugin.
-    كل Plugin (Manual/OCR/SMS/لاحقًا OpenBanking) بيحدد قيمته هون،
-    ورشيد والـ Analytics بيقدروا يميزوا مصدر كل بيانة بدون تعديل بالبنية.
-    """
+    """Transactionsource documentation."""
     MANUAL = "manual"
     OCR = "ocr"
     SMS = "sms"
-    OPEN_BANKING = "open_banking"  # محجوز للمستقبل
+    OPEN_BANKING = "open_banking"
 
 
 class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transactions"
 
-    # بصمة المصدر الخارجي (مثلاً hash رسالة SMS) — تمنع استيراد نفس الرسالة مرتين.
-    # القيد فريد لكل مستخدم على حدة، وقيم NULL (معاملات يدوية/OCR) مسموحة بلا حدود
-    # لأن NULL ما بتتساوى مع بعضها بقيود UNIQUE بـ PostgreSQL وSQLite.
+
+
+
     __table_args__ = (
         UniqueConstraint("user_id", "external_ref", name="uq_transactions_user_external_ref"),
     )
@@ -48,8 +44,8 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     note: Mapped[str | None] = mapped_column(nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    # يخزن البيانات الخام الأصلية من المصدر (نص رسالة SMS، نتيجة OCR الكاملة...)
-    # مفيد جدًا للتصحيح (debugging) ولتحسين دقة الـ Parsers لاحقًا دون فقدان المعلومة الأصلية
+
+
     raw_source_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     external_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)

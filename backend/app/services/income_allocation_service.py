@@ -1,10 +1,4 @@
-"""
-Income Allocation Service — Sprint 7 جزء (ج).
-
-القرار المعتمد من أحمد: التوزيع دايمًا يسأل المستخدم صراحة (ما في auto-route
-تلقائي لأعلى أولوية) — هالملف بس ينفذ التوزيع بعد ما المستخدم يحدد بنفسه
-وين بدو يحط كل جزء من الدخل، ما بيقترح شي من عنده.
-"""
+"""Module documentation."""
 import uuid
 
 from fastapi import HTTPException, status
@@ -19,8 +13,8 @@ from app.schemas.goal import GoalContribution
 from app.schemas.transaction import IncomeAllocationRequest
 from app.services import goal_service, transaction_service
 
-# سماحية بسيطة لأخطاء التقريب العشري (سنت أو أقل) — مش لازم تكون المطابقة
-# حرفية 100% بين مجموع التوزيع والمبلغ المتاح
+
+
 ROUNDING_TOLERANCE = 0.01
 
 
@@ -34,19 +28,14 @@ def get_allocated_amount(db: Session, transaction_id: uuid.UUID) -> float:
 
 
 def get_unallocated_amount(db: Session, transaction: Transaction) -> float:
-    """0 دايمًا لمعاملات المصروف — مفهوم التوزيع خاص بالدخل بس."""
+    """Get unallocated amount documentation."""
     if transaction.type != TransactionType.INCOME:
         return 0.0
     return max(0.0, float(transaction.amount) - get_allocated_amount(db, transaction.id))
 
 
 def unallocated_amounts_for(db: Session, transactions: list[Transaction]) -> dict[uuid.UUID, float]:
-    """
-    نفس get_unallocated_amount بس لقائمة كاملة بطلب SQL واحد (GROUP BY) بدل
-    طلب لكل معاملة — مهم لأن الداشبورد صار يجيب حتى 100 معاملة عشان بانر
-    "دخل بانتظار التوزيع" (استيراد الرسائل ممكن يضيف عشرات الدخول دفعة وحدة).
-    المفتاح: id المعاملة، بس لمعاملات الدخل — المصروف مش موجود بالنتيجة (= 0).
-    """
+    """Unallocated amounts for documentation."""
     income_ids = [t.id for t in transactions if t.type == TransactionType.INCOME]
     if not income_ids:
         return {}
@@ -83,9 +72,9 @@ def allocate_income(
             detail="ما بتقدر تكرر نفس الخطة أكتر من مرة بنفس التوزيع",
         )
 
-    # نتحقق من كل شي أول (وجود الخطط، ملكيتها، إنها نشطة، والمجموع الكلي)
-    # قبل ما نطبّق أي مساهمة فعلية — عشان ما يصير توزيع جزئي لو فشل عنصر
-    # بنص القائمة (نفس فلسفة reorder_goals: كل أو ولا شي).
+
+
+
     goals_by_id = {
         goal.id: goal
         for goal in db.query(Goal).filter(Goal.user_id == user.id, Goal.id.in_(goal_ids)).all()
@@ -117,18 +106,18 @@ def allocate_income(
     leftover_unallocated = 0.0
     for item in data.allocations:
         goal = goals_by_id[item.goal_id]
-        # الحد الأقصى يلي فعليًا محتاجه الهدف — ما بنسمح نعبّيه فوق سقفه.
-        # أي جزء زايد عن الحاجة يضل "غير موزّع" على المعاملة (المستخدم قرر
-        # وين يحطه لاحقًا)، مش بيضيع وبيصير current_amount غلط أكبر من الهدف.
+
+
+
         remaining_capacity = float(goal.target_amount) - float(goal.current_amount)
         amount_to_apply = min(item.amount, remaining_capacity)
         leftover_unallocated += item.amount - amount_to_apply
 
         if amount_to_apply <= 0:
-            continue  # الهدف مكتفي فعليًا (احتمال نادر: سباق تزامن)، تجاهل هالعنصر
+            continue
 
-        # contribute_to_goal هي نفس الدالة المستخدمة بالمساهمة اليدوية —
-        # نفس منطق الوصول لـ ACHIEVED بالضبط، مصدر وحيد للحقيقة بدل ما نكرره هون
+
+
         goal = goal_service.contribute_to_goal(
             db, user, item.goal_id, GoalContribution(amount=amount_to_apply)
         )

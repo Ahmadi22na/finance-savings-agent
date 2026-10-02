@@ -1,4 +1,4 @@
-"""اختبارات Sprint 5: بروتوكول اقتراح الهدف الكامل + تحديث المصاريف الأساسية عبر المحادثة."""
+"""Module documentation."""
 import pytest
 
 from app.agent.providers.base import AgentReply
@@ -8,7 +8,7 @@ from app.services import agent_chat_service, agent_action_service
 
 
 class FakeReplyProvider:
-    """مزود وهمي يرجّع نص رد ثابت (ممكن يحتوي كتل بروتوكول) — بدون أي اتصال شبكة."""
+    """Fakereplyprovider documentation."""
     def __init__(self, text):
         self.text = text
         self.calls = []
@@ -45,7 +45,7 @@ def register_with_persona(client, db_session, phone):
     return headers, user
 
 
-# ---------- تحديث المصاريف الأساسية عبر المحادثة ----------
+
 
 def test_essentials_update_marker_saves_to_profile(client, db_session, monkeypatch):
     headers, user = register_with_persona(client, db_session, "0790009001")
@@ -78,7 +78,7 @@ def test_essentials_estimate_from_profile_included_in_prompt(client, db_session,
     assert "200" in system_prompt_used
 
 
-# ---------- اقتراح إنشاء هدف كامل ----------
+
 
 def test_goal_proposal_marker_creates_pending_action(client, db_session, monkeypatch):
     headers, user = register_with_persona(client, db_session, "0790009003")

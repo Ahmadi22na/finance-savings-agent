@@ -28,10 +28,7 @@ def get_nudge(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    الموبايل يستدعي هذا الـ Endpoint دوريًا (مثلاً عند فتح التطبيق).
-    نرجّع nudge: null لو ولا داعي لأي رسالة هلأ — هذا رد طبيعي متوقع، مش خطأ.
-    """
+    """Get nudge documentation."""
     nudge = nudge_service.check_and_generate_nudge(db, current_user)
     return NudgeOut(nudge=nudge)
 
@@ -41,7 +38,7 @@ def list_pending_actions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """يرجّع الاقتراحات المعلّقة (PENDING) الحالية — يعرضها الموبايل كبطاقات ينتظر ردّك عليها."""
+    """List pending actions documentation."""
     return agent_action_service.list_pending_actions(db, current_user)
 
 
@@ -50,10 +47,7 @@ def check_for_new_actions(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    يفحص وضع المستخدم ويولّد اقتراحات جديدة لو في داعي فعلي. قائمة فاضية
-    رد طبيعي متوقع (مافي شي يستاهل اقتراح هلأ)، مش خطأ.
-    """
+    """Check for new actions documentation."""
     return agent_action_service.generate_suggestions(db, current_user)
 
 
@@ -63,11 +57,7 @@ def confirm_action(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    ينفّذ الاقتراح فعليًا على بيانات المستخدم. هذا الـ Endpoint الوحيد بكل
-    المشروع يلي بيعدّل بيانات مالية بناءً على قرار رشيد — وحتى هو ما بيشتغل
-    إلا بطلب صريح من المستخدم (زر "موافق" بالموبايل).
-    """
+    """Confirm action documentation."""
     return agent_action_service.confirm_action(db, current_user, action_id)
 
 

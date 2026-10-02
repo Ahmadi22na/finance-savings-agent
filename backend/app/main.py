@@ -1,8 +1,4 @@
-"""
-نقطة الدخول الرئيسية.
-هذا الملف مسؤوليته الوحيدة: تجميع (wire) كل شيء سوا — إنشاء التطبيق، تسجيل الـ Routers،
-إعداد الـ Middleware. أي منطق فعلي ما لازم يكون هون.
-"""
+"""Module documentation."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,5 +31,5 @@ app.include_router(agent.router, prefix="/api/v1")
 
 @app.get("/health", tags=["System"])
 def health_check():
-    """Endpoint بسيط يستخدمه Docker/الخوادم للتأكد إن السيرفر شغال — معيار أساسي بأي نظام إنتاجي."""
+    """Health check documentation."""
     return {"status": "ok", "app": settings.APP_NAME, "environment": settings.ENVIRONMENT}

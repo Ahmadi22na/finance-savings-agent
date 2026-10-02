@@ -7,7 +7,7 @@ from app.schemas.category import CategoryCreate
 
 
 def list_categories_for_user(db: Session, user: User) -> list[Category]:
-    """التصنيفات الافتراضية (متاحة للجميع) + التصنيفات الخاصة يلي أنشأها هذا المستخدم بالذات."""
+    """List categories for user documentation."""
     return (
         db.query(Category)
         .filter(or_(Category.is_default.is_(True), Category.user_id == user.id))

@@ -1,4 +1,4 @@
-"""اختبارات منطق الـ Nudges الاستباقية — بدون استدعاء Gemini الحقيقي (Fake Provider)."""
+"""Module documentation."""
 import pytest
 from datetime import datetime, timedelta, timezone
 
@@ -11,7 +11,7 @@ from app.services import nudge_service
 
 
 class FakeProvider:
-    """مزود وهمي يرجّع رد ثابت بدون أي اتصال شبكة فعلي — يخلي الاختبارات سريعة وموثوقة."""
+    """Fakeprovider documentation."""
     def __init__(self, text="رسالة تجريبية من رشيد", raw_error=None):
         self.text = text
         self.raw_error = raw_error
@@ -57,13 +57,13 @@ def test_no_nudge_when_mood_is_neutral(client, db_session, fake_provider):
     response = client.get("/api/v1/agent/nudge", headers=headers)
     assert response.status_code == 200
     assert response.json()["nudge"] is None
-    assert len(fake_provider.calls) == 0  # ما لازم نستدعي الـ AI أصلاً لو الحالة طبيعية
+    assert len(fake_provider.calls) == 0
 
 
 def test_nudge_generated_when_energized(client, db_session, fake_provider):
     headers, user = register_with_persona(client, db_session, "0790007002")
     goal = db_session.query(Goal).filter(Goal.user_id == user.id).first()
-    goal.current_amount = 900  # قريب جدًا من هدفه (target=1000)
+    goal.current_amount = 900
     db_session.commit()
 
     response = client.get("/api/v1/agent/nudge", headers=headers)
@@ -81,10 +81,10 @@ def test_nudge_respects_cooldown(client, db_session, fake_provider):
     first = client.get("/api/v1/agent/nudge", headers=headers)
     assert first.json()["nudge"] is not None
 
-    # نفس اللحظة تقريبًا — لازم يرجع None لأننا لسا بفترة الـ Cooldown
+
     second = client.get("/api/v1/agent/nudge", headers=headers)
     assert second.json()["nudge"] is None
-    assert len(fake_provider.calls) == 1  # ما استدعينا الـ AI مرة ثانية
+    assert len(fake_provider.calls) == 1
 
 
 def test_nudge_allowed_again_after_cooldown_expires(client, db_session, fake_provider):
@@ -93,7 +93,7 @@ def test_nudge_allowed_again_after_cooldown_expires(client, db_session, fake_pro
     goal.current_amount = 900
     db_session.commit()
 
-    # نزرع Nudge قديم يدويًا (قبل 13 ساعة) بدل ما ننتظر فعليًا بالاختبار
+
     old_nudge = AgentInteraction(
         user_id=user.id, trigger_type=InteractionTrigger.NUDGE,
         message="نودج قديم", is_from_user=False,

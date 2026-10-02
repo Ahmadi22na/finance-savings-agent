@@ -1,8 +1,4 @@
-"""
-طبقة الأمان: تشفير كلمات المرور و JWT.
-هذا الملف بمجلد core/ منفصل عن services/ لأنه Cross-cutting concern
-(يُستخدم من أكثر من مكان: auth, middleware, dependencies) وليس منطق عمل (business logic).
-"""
+"""Module documentation."""
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt, JWTError

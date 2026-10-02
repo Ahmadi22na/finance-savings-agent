@@ -1,4 +1,4 @@
-"""اختبارات قراءة الفواتير عبر Gemini Vision (Sprint 8 — OCR)."""
+"""Module documentation."""
 import io
 
 import pytest
@@ -9,7 +9,7 @@ from app.models.category import Category, CategoryType
 
 
 class FakeImageProvider:
-    """يحاكي BaseAIProvider.analyze_image بدون أي استدعاء حقيقي لـ Gemini."""
+    """Fakeimageprovider documentation."""
     def __init__(self, text):
         self.text = text
         self.calls = []
@@ -23,8 +23,8 @@ class FakeImageProvider:
 
 
 def patch_image_provider(monkeypatch, fake):
-    # الـ route استورد get_ai_provider مباشرة بالاسم (from ... import get_ai_provider)،
-    # فلازم نصحّح النسخة المستوردة جوا الموديول نفسه، مش بس مكان تعريفها الأصلي
+
+
     monkeypatch.setattr(transactions_route, "get_ai_provider", lambda: fake)
 
 
@@ -48,8 +48,8 @@ def get_auth_headers(client, phone="0790020001"):
 
 
 def fake_image_file():
-    # محتوى الصورة نفسه مش مهم للاختبار — الفحص كله على منطق التحقق
-    # والتنظيف حوالين رد الـ AI، مش على قراءة بايتات صورة حقيقية
+
+
     return ("receipt.jpg", io.BytesIO(b"fake-jpeg-bytes"), "image/jpeg")
 
 
@@ -72,12 +72,12 @@ def test_scan_receipt_returns_amount_and_category(client, db_session, monkeypatc
     assert body["note"] == "مطعم الحارة"
     assert body["readable"] is True
 
-    # نتأكد إنه فعليًا الصورة والـ mime_type وصلوا للـ provider صح
+
     assert fake.calls[0][3] == "image/jpeg"
 
 
 def test_scan_receipt_handles_unreadable_image(client, db_session, monkeypatch, seed_categories):
-    """صورة غير واضحة أو مش فاتورة أصلًا — رشيد يرجّع null بدل ما يخترع أرقام."""
+    """Test scan receipt handles unreadable image documentation."""
     headers = get_auth_headers(client)
     fake = FakeImageProvider('{"amount": null, "category_id": null, "note": null}')
     patch_image_provider(monkeypatch, fake)
@@ -93,7 +93,7 @@ def test_scan_receipt_handles_unreadable_image(client, db_session, monkeypatch, 
 
 
 def test_scan_receipt_ignores_unknown_category_id(client, db_session, monkeypatch, seed_categories):
-    """لو الموديل اخترع category_id مش موجود فعليًا، نتجاهله بدل ما نخزّن بيانات فاسدة."""
+    """Test scan receipt ignores unknown category id documentation."""
     headers = get_auth_headers(client)
     fake = FakeImageProvider('{"amount": 20, "category_id": "not-a-real-id", "note": "شي ما"}')
     patch_image_provider(monkeypatch, fake)
@@ -106,7 +106,7 @@ def test_scan_receipt_ignores_unknown_category_id(client, db_session, monkeypatc
     body = response.json()
     assert body["amount"] == 20.0
     assert body["category_id"] is None
-    assert body["readable"] is True  # المبلغ نفسه انقرأ صح، بس التصنيف تجاهلناه
+    assert body["readable"] is True
 
 
 def test_scan_receipt_rejects_malformed_json_gracefully(client, db_session, monkeypatch, seed_categories):
@@ -133,7 +133,7 @@ def test_scan_receipt_rejects_unsupported_file_type(client, db_session):
 
 
 def test_scan_receipt_never_creates_a_transaction(client, db_session, monkeypatch, seed_categories):
-    """أهم قرار تصميم بهالميزة: القراءة لحالها ما لازم تنشئ أي معاملة حقيقية."""
+    """Test scan receipt never creates a transaction documentation."""
     headers = get_auth_headers(client)
     fake = FakeImageProvider(
         f'{{"amount": 12.5, "category_id": "{seed_categories["food"]}", "note": "مطعم"}}'

@@ -1,4 +1,4 @@
-"""اختبارات Sprint 4: اقتراحات رشيد القابلة للتطبيق (Agent Actions)."""
+"""Module documentation."""
 import pytest
 from datetime import datetime, timezone
 
@@ -12,7 +12,7 @@ from app.services import agent_action_service
 
 
 class FakeJsonProvider:
-    """مزود وهمي يرجّع نص JSON ثابت — بدون أي اتصال شبكة فعلي."""
+    """Fakejsonprovider documentation."""
     def __init__(self, json_text):
         self.json_text = json_text
         self.calls = []
@@ -59,7 +59,7 @@ def add_uncategorized_transaction(db_session, user, note="سهرة مع الشب
     return transaction
 
 
-# ---------- اقتراح تصحيح التصنيف ----------
+
 
 def test_generate_category_correction_suggestion(client, db_session, monkeypatch):
     headers, user = register_with_persona(client, db_session, "0790008001")
@@ -89,7 +89,7 @@ def test_ignores_ai_suggestion_with_unknown_category_id(client, db_session, monk
     add_uncategorized_transaction(db_session, user)
 
     response = client.post("/api/v1/agent/actions/check", headers=headers)
-    assert response.json() == []  # id مش موجود فعليًا بقائمة التصنيفات → نتجاهل
+    assert response.json() == []
 
 
 def test_ignores_malformed_ai_json(client, db_session, monkeypatch):
@@ -144,7 +144,7 @@ def test_reject_action_does_not_apply_it(client, db_session, monkeypatch):
     assert reject_response.json()["status"] == "rejected"
 
     db_session.refresh(transaction)
-    assert transaction.category_id is None  # ما تغيّر شي فعليًا بالبيانات
+    assert transaction.category_id is None
 
 
 def test_no_duplicate_suggestions_for_same_transaction(client, db_session, monkeypatch):
@@ -161,7 +161,7 @@ def test_no_duplicate_suggestions_for_same_transaction(client, db_session, monke
     client.post("/api/v1/agent/actions/check", headers=headers)
     second_check = client.post("/api/v1/agent/actions/check", headers=headers)
     assert second_check.json() == []
-    assert len(fake.calls) == 1  # ما استدعينا الـ AI مرة ثانية لنفس المعاملة
+    assert len(fake.calls) == 1
 
 
 def test_confirming_already_handled_action_fails(client, db_session, monkeypatch):
@@ -182,15 +182,15 @@ def test_confirming_already_handled_action_fails(client, db_session, monkeypatch
     assert second_confirm.status_code == 400
 
 
-# ---------- اقتراح المساهمة بالهدف ----------
+
 
 def test_goal_contribution_suggested_when_energized(client, db_session, monkeypatch):
     headers, user = register_with_persona(client, db_session, "0790008008")
-    fake = FakeJsonProvider("{}")  # ما لازم يُستدعى أصلاً — هالمسار Rule-based بالكامل
+    fake = FakeJsonProvider("{}")
     patch_provider(monkeypatch, fake)
 
     goal = db_session.query(Goal).filter(Goal.user_id == user.id).first()
-    goal.current_amount = 900  # قريب جدًا من الهدف (target=1000) → energized
+    goal.current_amount = 900
     db_session.commit()
 
     response = client.post("/api/v1/agent/actions/check", headers=headers)

@@ -20,17 +20,10 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column('users', sa.Column('estimated_monthly_essentials', sa.Numeric(12, 2), nullable=True))
 
-    # إضافة قيمة جديدة لنوع الـ Enum الموجود بقاعدة البيانات — PostgreSQL
-    # بيسمح هيك بدون ما نحذف/نعيد إنشاء النوع كامل (وبالتالي بدون ما نلمس
-    # الصفوف الموجودة أصلاً). لازم يشتغل خارج معاملة صريحة على بعض إصدارات
-    # قديمة من Postgres، بس PostgreSQL 12+ (المستخدم بالمشروع) بيسمح فيها
-    # جوا Migration عادي طالما ما بنستخدم القيمة بنفس الـ Transaction.
+    # PostgreSQL allows adding enum values, but older versions require it outside a transaction.
     op.execute("ALTER TYPE agent_action_type_enum ADD VALUE IF NOT EXISTS 'SUGGEST_GOAL_CREATION'")
 
 
 def downgrade() -> None:
     op.drop_column('users', 'estimated_monthly_essentials')
-    # ملاحظة: PostgreSQL ما بيدعم حذف قيمة enum مباشرة (DROP VALUE مش موجودة) —
-    # التراجع عن إضافة القيمة نفسها يحتاج إعادة بناء النوع كامل، وهذا خطر
-    # على بيانات موجودة لو فيه صفوف تستخدمها فعليًا. تركناها عن قصد بدون
-    # تراجع هون؛ لو احتجتها فعليًا لاحقًا راجع التعامل يدويًا.
+    # PostgreSQL cannot remove enum values directly, so the downgrade leaves this value in place.

@@ -21,7 +21,7 @@ category_type_enum = sa.Enum('EXPENSE', 'INCOME', 'BOTH', name='category_type_en
 
 
 def upgrade() -> None:
-    # لازم ننشئ نوع الـ ENUM بشكل صريح أول — autogenerate ما بيضمن ترتيب إنشائه صح مع PostgreSQL
+
     category_type_enum.create(op.get_bind(), checkfirst=True)
     op.add_column(
         'categories',

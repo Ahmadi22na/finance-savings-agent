@@ -1,10 +1,4 @@
-"""seed three رشيد personas
-
-Revision ID: 91f46c7b9d8e
-Revises: 07be463b5a62
-Create Date: 2026-08-26 17:56:31.286280
-
-"""
+"""Module documentation."""
 from typing import Sequence, Union
 
 from alembic import op
@@ -42,9 +36,9 @@ personas_table = sa.table(
     sa.column("is_active", sa.Boolean),
 )
 
-# ملاحظة مهمة: هذا الـ Prompt الأساسي (المشترك بين الثلاثة) — كل شخصية بتضيف عليه
-# أسلوبها الخاص بس. هيك نضمن قواعد الأمان والسلوك (ما نستفز، ما نيأس، ما نقرر
-# بدون إذن) ثابتة دايمًا بغض النظر عن الشخصية المختارة.
+
+
+
 SHARED_RULES = """
 قواعد ثابتة يجب الالتزام فيها دائمًا بغض النظر عن شخصيتك:
 - ما تستخدم أسلوب لوم أو تحقير أبدًا، حتى لو المستخدم صرف بشكل غير منضبط.
