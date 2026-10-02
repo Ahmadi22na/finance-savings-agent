@@ -1,18 +1,18 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// عنوان الـ Backend. لما تشغّل التطبيق على محاكي أندرويد (Emulator)، لازم
-/// تستخدم 10.0.2.2 بدل localhost (هيك بيوصّلك للجهاز المضيف). لو جهاز حقيقي
-/// على نفس الشبكة، استخدم IP الجهاز الفعلي (مثلاً 192.168.x.x).
+
+
+
 const String kApiBaseUrl = 'http://10.0.2.2:8000/api/v1';
 
 const _secureStorage = FlutterSecureStorage();
 const _accessTokenKey = 'access_token';
 const _refreshTokenKey = 'refresh_token';
 
-/// طبقة اتصال واحدة مشتركة لكل التطبيق — نظير BaseAIProvider بالـ Backend
-/// بفلسفتها: كل الشاشات بتتعامل مع هاي الطبقة، ما حدا بيسوي HTTP request
-/// مباشرة من الواجهة.
+
+
+
 class ApiClient {
   late final Dio dio;
 
@@ -23,8 +23,8 @@ class ApiClient {
       receiveTimeout: const Duration(seconds: 15),
     ));
 
-    // هذا الـ Interceptor بيضيف "Authorization: Bearer <token>" تلقائيًا
-    // لأي طلب — بدل ما نكتبها يدويًا بكل استدعاء API بكل شاشة.
+
+
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _secureStorage.read(key: _accessTokenKey);
@@ -55,8 +55,8 @@ class ApiClient {
   }
 }
 
-/// استثناء موحّد لأخطاء الـ API — يحوّل أي خطأ Dio لرسالة عربية مفهومة
-/// بدل ما كل شاشة تتعامل مع تفاصيل Dio التقنية بنفسها.
+
+
 class ApiException implements Exception {
   final String message;
   final int? statusCode;

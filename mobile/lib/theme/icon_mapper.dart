@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-/// الـ Backend بيخزّن اسم الأيقونة كنص بسيط (زي "utensils", "car"...) —
-/// هاي الدالة بتحوّل النص لأيقونة Flutter فعلية. لو جانا اسم ما نعرفه (تصنيف
-/// جديد انضاف بقاعدة البيانات ولسا ما حدّثنا الموبايل)، نرجّع أيقونة عامة
-/// (tag) بدل ما نكسر التطبيق أو نطلع Exception.
+
+
+
+
 IconData iconForKey(String key) {
   switch (key) {
     case 'utensils':

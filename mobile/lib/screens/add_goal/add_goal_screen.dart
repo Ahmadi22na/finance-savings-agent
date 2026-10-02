@@ -6,11 +6,11 @@ import '../../core/dashboard_providers.dart';
 import '../../core/api_client.dart';
 import '../../widgets/app_text_field.dart';
 
-/// شاشة إضافة هدف يدويًا — الفجوة يلي اكتشفناها بـ Sprint 7: قبل هالشاشة
-/// ما كانت في طريقة تضيف هدف إلا عن طريق الـ Onboarding (أول هدف بس) أو
-/// اقتراح رشيد بالشات. نفس الحقول بالضبط يلي يبنيها الشات (عنوان، مبلغ،
-/// موعد اختياري، مصروف ثابت شهري) — القيمة المضافة هون إنك تقدر تضيفها
-/// مباشرة بدون ما تحتاج تحكي لرشيد كل مرة.
+
+
+
+
+
 class AddGoalScreen extends ConsumerStatefulWidget {
   const AddGoalScreen({super.key});
 
@@ -99,8 +99,8 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              // موعد اختياري — GoalPathScreen يستخدمه لحساب "هل انت متأخر عن
-              // الجدول" لو موجود، مش إلزامي لإنشاء الهدف
+
+
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(_deadline == null
@@ -112,9 +112,9 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
                 ),
               ),
               const Divider(),
-              // "مصروف ثابت شهري" — نفس الخطة بالضبط بقاعدة البيانات، الفرق
-              // الوحيد إنها بتتصفّر تلقائيًا كل شهر لما توصل لهدفها (Lazy
-              // Reset بالباكيند) بدل ما تضل "منجزة" للأبد.
+
+
+
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _isRecurring,

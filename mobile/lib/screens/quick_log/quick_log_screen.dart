@@ -21,7 +21,7 @@ class QuickLogScreen extends ConsumerStatefulWidget {
 }
 
 class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
-  String _type = 'expense'; // 'expense' أو 'income'
+  String _type = 'expense';
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   Category? _selectedCategory;
@@ -31,11 +31,11 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   @override
   void initState() {
     super.initState();
-    // نعيد بناء الشاشة كل ما المستخدم يكتب — عشان نفعّل/نعطّل زر الحفظ بشكل صحيح
+
     _amountController.addListener(() => setState(() {}));
     _noteController.addListener(() {
-      // لو المستخدم بلّش يكتب ملاحظة، نلغي أي تصنيف كان محدد بالأيقونات —
-      // عشان نضمن مسار واحد واضح (إما أيقونة، إما نص ذكي) بكل مرة
+
+
       if (_noteController.text.isNotEmpty && _selectedCategory != null) {
         setState(() => _selectedCategory = null);
       } else {
@@ -62,7 +62,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   void _selectCategory(Category category) {
     setState(() {
       _selectedCategory = category;
-      _noteController.clear(); // نفس المنطق بالعكس — اختيار أيقونة بيلغي أي نص مكتوب
+      _noteController.clear();
     });
   }
 
@@ -108,8 +108,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         return;
       }
 
-      // نبحث عن التصنيف المقترح ضمن تصنيفات المستخدم الفعلية (رشيد ما بيخترع
-      // id، بس منتأكد هون كمان قبل ما نعرضه بالواجهة)
+
+
       Category? matchedCategory;
       if (result.categoryId != null) {
         final categories = await ref.read(categoriesListProvider.future);
@@ -123,11 +123,11 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
       if (!mounted) return;
       setState(() {
-        _type = 'expense'; // فاتورة دايمًا مصروف، مش دخل
+        _type = 'expense';
         if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
-        // نفس منطق الشاشة الأصلي: مسار الأيقونة ومسار النص متبادلين، مش
-        // مع بعض — لو عندنا تصنيف واثوق فيه منستخدمه (أسرع مراجعة)، وإلا
-        // منعبّي النص الحر (اسم المحل) ويختار المستخدم تصنيف بنفسه
+
+
+
         if (matchedCategory != null) {
           _selectedCategory = matchedCategory;
           _noteController.clear();
@@ -192,9 +192,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       setState(() {
         if (result.type != null) _type = result.type!;
         if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
-        // النص هون وصف تحويل (زي "تحويل CliQ من ...")، مش اسم محل بالضرورة —
-        // نسيبه بخانة الملاحظة والمستخدم يختار تصنيف مناسب بنفسه، بدل ما
-        // نخمّن تصنيف غلط من نص مالي مجرد
+
+
+
         if (result.note != null) {
           _noteController.text = result.note!;
           _selectedCategory = null;
@@ -224,7 +224,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
       );
 
-      // يحدّث الـ Dashboard تلقائيًا بمرة الفتح الجاية
+
       ref.invalidate(goalsListProvider);
       ref.invalidate(recentTransactionsProvider);
 
@@ -237,8 +237,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         ));
       }
 
-      // دخل جديد ولسا في مبلغ غير موزّع؟ نسأل المستخدم وين بدو يحطه قبل
-      // ما نسكّر الشاشة — نفس القرار المتفق عليه: دايمًا نسأل صراحة.
+
+
       if (_type == 'income' && result.unallocatedAmount > 0) {
         await maybePromptIncomeAllocation(context, ref, result);
       }
@@ -286,7 +286,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // --- Toggle مصروف / دخل ---
+
             Row(
               children: [
                 Expanded(
@@ -316,7 +316,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- المبلغ ---
+
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -330,7 +330,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             ),
             const Divider(height: 32),
 
-            // --- مسار الأيقونات ---
+
             const Text('اختار تصنيف بضغطة وحدة',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),
@@ -388,7 +388,7 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             ]),
             const SizedBox(height: 16),
 
-            // --- مسار النص الذكي ---
+
             const Text('اكتب وصف بسيط ورشيد بيصنّفها إلك',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),

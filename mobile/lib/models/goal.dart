@@ -1,12 +1,12 @@
-/// يطابق app/schemas/goal.py -> GoalOut بالـ Backend.
+
 class Goal {
   final String id;
   final String title;
   final String icon;
   final double targetAmount;
   final double currentAmount;
-  final int priority; // رقم أصغر = أولوية أعلى — يحدد ترتيب السحب بالداشبورد
-  final bool isRecurring; // "مصروف ثابت شهري" — بيتصفّر تلقائيًا كل شهر
+  final int priority;
+  final bool isRecurring;
   final DateTime? deadline;
   final String status; // active | achieved | abandoned
   final double progressPercentage;

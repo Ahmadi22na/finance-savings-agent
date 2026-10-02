@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/selectable_card.dart';
 
 class IncomeTypePage extends StatelessWidget {
-  final String? selectedType; // 'fixed' أو 'variable'
+  final String? selectedType;
   final ValueChanged<String> onSelect;
 
   const IncomeTypePage({

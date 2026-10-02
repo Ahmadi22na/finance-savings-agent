@@ -1,6 +1,6 @@
-/// يطابق app/schemas/persona.py -> PersonaOut بالـ Backend بالضبط.
-/// أي تغيير بشكل الرد هناك لازم ينعكس هون يدويًا (ما في type-sharing تلقائي
-/// بين Python وDart، فهاي نقطة لازم تنتبهلها لو عدّلت الـ Backend لاحقًا).
+
+
+
 class Persona {
   final String id;
   final String key;
@@ -26,6 +26,6 @@ class Persona {
     );
   }
 
-  /// مسار صورة الـ Asset المحلية المطابقة لهاي الشخصية (اسم الملف = key بالضبط).
+
   String get imageAssetPath => 'assets/images/personas/$key.png';
 }

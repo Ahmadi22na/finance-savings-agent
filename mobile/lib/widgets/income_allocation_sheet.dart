@@ -7,11 +7,11 @@ import '../core/api_client.dart';
 import '../models/transaction.dart';
 import '../models/goal.dart';
 
-/// يفحص إذا معاملة الدخل هاي لسا فيها مبلغ غير موزّع، وإذا في خطط نشطة
-/// أصلاً يقدر يوزع عليها — ولو نعم، بيفتح شاشة التوزيع مباشرة. يُستدعى من
-/// كل نقطة ممكن ينضاف فيها دخل جديد (التسجيل السريع، وتأكيد اقتراح دخل من
-/// الشات) عشان المستخدم دايمًا يُسأل "وين بدك تحط هالدخل؟" — هيك بالضبط
-/// القرار المتفق عليه (دايمًا نسأل، ما في auto-route تلقائي).
+
+
+
+
+
 Future<void> maybePromptIncomeAllocation(
   BuildContext context,
   WidgetRef ref,
@@ -24,10 +24,10 @@ Future<void> maybePromptIncomeAllocation(
     final allGoals = await ref.read(goalServiceProvider).listGoals();
     activeGoals = allGoals.where((g) => g.status == 'active').toList();
   } catch (_) {
-    return; // فشل جلب الخطط مش شي حرج هون — بس ما نقدر نعرض الشاشة
+    return;
   }
 
-  // ما في خطط نشطة أصلاً (أو كلها متروكة/منجزة) — ما في وين نوزع، نتجاوز
+
   if (activeGoals.isEmpty || !context.mounted) return;
 
   await showModalBottomSheet(
@@ -64,9 +64,9 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
   void initState() {
     super.initState();
     _controllers = {for (final goal in widget.goals) goal.id: TextEditingController()};
-    // تعبئة مسبقة: كامل المبلغ غير الموزّع على أعلى أولوية (أول خطة باللستة
-    // — جاية أصلاً مرتبة حسب الأولوية من الباكيند) — المستخدم يقدر يعدّلها
-    // ويوزّع على أكتر من خطة لو بدو.
+
+
+
     if (widget.goals.isNotEmpty) {
       _controllers[widget.goals.first.id]!.text = _formatAmount(widget.transaction.unallocatedAmount);
     }
@@ -121,12 +121,12 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
       if (!mounted) return;
       Navigator.of(context).pop();
 
-      // لو خطة وحدة أو أكتر اكتفت بأقل من المبلغ يلي حددته (مثلاً حطيت
-      // 300 على هدف سقفه 150)، رشيد ما بيرمي الباقي — بيسألك فورًا وين
-      // بدك تحطه، بنفس الشاشة، بس بآخر قيم الخطط (خطة اكتفت رح تختفي من
-      // الخيارات لأنها صارت غير نشطة). لازم نستخدم Context الشاشة الأصلية
-      // (يلي فتحت هالـ Sheet) مش Context الـ Sheet نفسه — هو صار Unmounted
-      // فور ما استدعينا pop() فوق.
+
+
+
+
+
+
       if (updatedTransaction.unallocatedAmount > 0.01 && widget.callerContext.mounted) {
         await maybePromptIncomeAllocation(widget.callerContext, ref, updatedTransaction);
       }

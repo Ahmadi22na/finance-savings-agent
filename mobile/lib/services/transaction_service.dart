@@ -24,12 +24,12 @@ class TransactionService {
     }
   }
 
-  /// التسجيل السريع — يدعم المسارين سوا (نفس منطق الـ Backend بالضبط):
-  /// - وصل categoryId؟ → حفظ فوري بدون أي معالجة إضافية (مسار الأيقونات)
-  /// - ما وصل categoryId بس وصل note؟ → محرك التصنيف الذكي يحاول يخمّن
+
+
+
   Future<Transaction> quickLog({
     required double amount,
-    required String type, // 'income' أو 'expense'
+    required String type,
     String? categoryId,
     String? note,
   }) async {
@@ -46,10 +46,10 @@ class TransactionService {
     }
   }
 
-  /// توزيع معاملة دخل واحدة (كل أو جزء منها) على خطة أو أكتر — دايمًا
-  /// بقرار صريح من المستخدم، رشيد ما بيوزع شي من عنده. بيرجّع المعاملة
-  /// المحدّثة (unallocated_amount ممكن يضل أكبر من صفر لو الهدف اكتفى
-  /// بأقل من المبلغ المطلوب — الباقي يضل بانتظار توزيع تاني).
+
+
+
+
   Future<Transaction> allocateIncome({
     required String transactionId,
     required List<Map<String, dynamic>> allocations,
@@ -64,8 +64,8 @@ class TransactionService {
     }
   }
 
-  /// يرفع صورة فاتورة ويرجّع مسودة (مبلغ + تصنيف مقترح + ملاحظة) — ما بتنشئ
-  /// أي معاملة، المستخدم لازم يراجعها ويحفظها بنفسه عبر quickLog العادي.
+
+
   Future<ReceiptScanResult> scanReceipt(File imageFile) async {
     try {
       final formData = FormData.fromMap({
@@ -77,7 +77,7 @@ class TransactionService {
       final response = await _apiClient.dio.post(
         '/transactions/scan-receipt',
         data: formData,
-        // قراءة صورة عبر Gemini Vision ممكن تاخد وقت أطول من نداء نصي عادي
+
         options: Options(receiveTimeout: const Duration(seconds: 30)),
       );
       return ReceiptScanResult.fromJson(response.data as Map<String, dynamic>);
@@ -86,8 +86,8 @@ class TransactionService {
     }
   }
 
-  /// يحلل نص رسالة بنكية ملصوقة يدويًا (بدون أي صلاحية قراءة رسائل) ويرجّع
-  /// مسودة — ما بتنشئ أي معاملة، المستخدم لازم يراجعها ويحفظها بنفسه.
+
+
   Future<SmsParseResult> parseSms(String text) async {
     try {
       final response = await _apiClient.dio.post('/transactions/parse-sms', data: {
@@ -99,7 +99,7 @@ class TransactionService {
     }
   }
 
-  /// يحلل رسائل مقروءة من صندوق الوارد ويرجّع معاملات مقترحة (ما بيحفظ شي).
+
   Future<List<SmsImportCandidate>> previewSmsImport(List<RawSms> messages) async {
     try {
       final response = await _apiClient.dio.post('/transactions/sms-import/preview', data: {
@@ -114,8 +114,8 @@ class TransactionService {
     }
   }
 
-  /// ينشئ معاملات فعلية من الرسائل يلي اختارها المستخدم. السيرفر بيعيد تحليل
-  /// النص بنفسه، وبيتجاهل الرسائل يلي انستوردت قبل (منع التكرار بالبصمة).
+
+
   Future<List<Transaction>> confirmSmsImport(List<RawSms> messages) async {
     try {
       final response = await _apiClient.dio.post('/transactions/sms-import/confirm', data: {

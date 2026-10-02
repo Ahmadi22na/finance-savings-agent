@@ -12,11 +12,11 @@ class AgentService {
       final response = await _apiClient.dio.post(
         '/agent/chat',
         data: {'message': message},
-        // رشيد ممكن ياخد وقت أطول من باقي الـ API (توليد AI + إعادة محاولة
-        // تلقائية لحد 3 مرات لو Gemini مزحوم) — الـ Timeout الافتراضي
-        // (15 ثانية) كان ينتهي قبل ما يخلص أحيانًا، فيشوف المستخدم خطأ
-        // Timeout ويعيد الإرسال بنفسه بينما الطلب الأول لسا شغال عالسيرفر
-        // فعليًا وبيكمل وينتج اقتراح — يعني اقتراح مكرر لنفس الرسالة.
+
+
+
+
+
         options: Options(receiveTimeout: const Duration(seconds: 45)),
       );
       return response.data['reply'] as String;
@@ -25,8 +25,8 @@ class AgentService {
     }
   }
 
-  /// يرجّع نص الـ Nudge لو رشيد قرر يبادر بالحديث هلأ، أو null لو ما في داعي
-  /// (رد طبيعي ومتوقع — مو خطأ). نفس منطق /agent/nudge بالـ Backend بالضبط.
+
+
   Future<String?> checkNudge() async {
     try {
       final response = await _apiClient.dio.get('/agent/nudge');
@@ -36,7 +36,7 @@ class AgentService {
     }
   }
 
-  /// الاقتراحات المعلّقة الحالية — بدون أي استدعاء AI (قراءة قاعدة بيانات بس).
+
   Future<List<AgentAction>> listPendingActions() async {
     try {
       final response = await _apiClient.dio.get('/agent/actions');
@@ -47,8 +47,8 @@ class AgentService {
     }
   }
 
-  /// يفحص وضع المستخدم ويولّد اقتراحات جديدة لو في داعي فعلي (ممكن يرجّع
-  /// قائمة فاضية — رد طبيعي متوقع، مش خطأ). هون بس بيصير أي استدعاء AI فعلي.
+
+
   Future<List<AgentAction>> checkForNewActions() async {
     try {
       final response = await _apiClient.dio.post('/agent/actions/check');

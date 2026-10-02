@@ -45,7 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final nextScreen = (user?.hasCompletedOnboarding ?? false)
             ? const DashboardScreen()
             : const OnboardingFlowScreen();
-        // نجح الدخول — نستبدل الشاشة كاملة (المستخدم ما يقدر يرجع لشاشة الدخول بالـ Back)
+
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => nextScreen),
           (route) => false,

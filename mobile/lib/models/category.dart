@@ -1,4 +1,4 @@
-/// يطابق app/schemas/category.py -> CategoryOut بالـ Backend.
+
 class Category {
   final String id;
   final String name;
