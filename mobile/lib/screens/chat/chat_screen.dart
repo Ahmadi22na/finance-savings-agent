@@ -19,6 +19,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   bool _isSending = false;
   bool _checkedNudge = false;
+  int? _speakingIndex; // index الرسالة يلي عم تتنطق هلأ، أو null
 
   @override
   void initState() {
@@ -30,9 +31,38 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    // ما نسيب صوت رشيد يضل يحكي بعد ما المستخدم طلع من شاشة الشات
+    ref.read(ttsServiceProvider).stop();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleSpeak(int index, String text) async {
+    final tts = ref.read(ttsServiceProvider);
+
+    if (_speakingIndex == index) {
+      await tts.stop();
+      if (mounted) setState(() => _speakingIndex = null);
+      return;
+    }
+
+    setState(() => _speakingIndex = index);
+    final personaKey = ref.read(currentUserProvider)?.persona?.key ?? 'business';
+    final started = await tts.speak(
+      text,
+      personaKey: personaKey,
+      onDone: () {
+        if (mounted) setState(() => _speakingIndex = null);
+      },
+    );
+
+    if (!started && mounted) {
+      setState(() => _speakingIndex = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('جهازك ما فيه صوت عربي مثبت — فعّله من إعدادات النظام')),
+      );
+    }
   }
 
   Future<void> _checkForNudge() async {
@@ -128,6 +158,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             message: message,
                             accentColor: accentColor,
                             personaImagePath: persona?.imageAssetPath,
+                            isSpeaking: _speakingIndex == index,
+                            onToggleSpeak:
+                                message.isFromUser ? null : () => _toggleSpeak(index, message.text),
                           );
                         },
                       ),
@@ -172,11 +205,15 @@ class _ChatBubble extends StatelessWidget {
   final ChatMessage message;
   final Color accentColor;
   final String? personaImagePath;
+  final bool isSpeaking;
+  final VoidCallback? onToggleSpeak; // null لرسائل المستخدم (ما بننطقها)
 
   const _ChatBubble({
     required this.message,
     required this.accentColor,
     required this.personaImagePath,
+    this.isSpeaking = false,
+    this.onToggleSpeak,
   });
 
   @override
@@ -205,6 +242,22 @@ class _ChatBubble extends StatelessWidget {
             message.text,
             style: TextStyle(color: isUser ? Colors.white : Colors.black87, fontSize: 14),
           ),
+          if (onToggleSpeak != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: InkWell(
+                onTap: onToggleSpeak,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Icon(
+                    isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+                    size: 18,
+                    color: isSpeaking ? accentColor : Colors.black38,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

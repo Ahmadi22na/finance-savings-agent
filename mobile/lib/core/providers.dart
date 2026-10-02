@@ -7,6 +7,7 @@ import '../services/goal_service.dart';
 import '../services/transaction_service.dart';
 import '../services/category_service.dart';
 import '../services/agent_service.dart';
+import '../services/tts_service.dart';
 import '../models/user.dart';
 
 /// Provider واحد لـ ApiClient — كل الخدمات بتاخذه من هون، ما حدا بيسوي
@@ -36,6 +37,10 @@ final categoryServiceProvider = Provider<CategoryService>((ref) {
 final agentServiceProvider = Provider<AgentService>((ref) {
   return AgentService(ref.watch(apiClientProvider));
 });
+
+// نسخة وحدة من TtsService طول عمر التطبيق — ما بنعمل instance جديد كل
+// مرة (بيضيّع إعداد المحرك من جديد، وبيصعّب إيقاف صوت شغال من شاشة تانية).
+final ttsServiceProvider = Provider<TtsService>((ref) => TtsService());
 
 /// حالة المستخدم الحالي عبر كل التطبيق — أي شاشة تقدر "تسمع" لأي تغيير هون
 /// (مثلاً بعد تسجيل الدخول أو إكمال الـ Onboarding) وتحدّث نفسها تلقائيًا.
