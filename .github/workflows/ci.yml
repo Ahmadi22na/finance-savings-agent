@@ -2,8 +2,9 @@ name: CI
 
 # ============================================================
 # Finance & Savings Agent — CI أساسي
-# بس Lint + Test للـ backend حاليًا (مافي كود Flutter/Mobile بعد)
-# ما فيه أي خطوة Deploy — المشروع لسا بمرحلة Discovery
+# Lint + Test للـ backend. 110 اختبار فعلي يغطي المشروع كامل
+# (Sprints 0-9) — لازم تنجح فعليًا عشان أي PR ينضم لـ main.
+# ما فيه أي خطوة Deploy — الاستضافة الحقيقية لسا مرحلة قادمة.
 # ============================================================
 
 on:
@@ -35,12 +36,15 @@ jobs:
 
       - name: Lint (flake8)
         working-directory: ./backend
-        run: flake8 app --max-line-length=100 --extend-ignore=E203 || true
-        # ⚠️ "|| true" مؤقت لحد ما ينضاف كود فعلي — رح تنشال لما يبلش التطوير الحقيقي
+        run: flake8 app --max-line-length=100 --extend-ignore=E203
+        # لازم تنجح فعليًا — ما في داعي || true بعد، الكود موجود وواقعي
 
       - name: Run tests (pytest)
         working-directory: ./backend
-        run: pytest tests/ || echo "لا توجد اختبارات بعد — طبيعي بهاي المرحلة"
+        env:
+          JWT_SECRET_KEY: test-only-secret-never-used-in-production
+        run: pytest tests/ -v
+        # لازم تنجح فعليًا — 110 اختبار حقيقي، مش "لا توجد اختبارات بعد"
 
   # agent-review-guard:
   # ملاحظة: قسم 10 بالتوثيق بيتطلب مراجعة إلزامية من شخص ثانٍ

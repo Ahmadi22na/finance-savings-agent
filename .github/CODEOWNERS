@@ -7,4 +7,3 @@
 # "Require review from Code Owners" بـ Branch Protection Rules)
 # ============================================================
 
-/backend/app/agent/  @REPLACE_WITH_SECOND_REVIEWER_USERNAME
