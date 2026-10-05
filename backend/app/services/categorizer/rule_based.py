@@ -1,6 +1,8 @@
-"""Module documentation."""
-from uuid import UUID
-
+"""
+تطبيق مبدئي لمحرك التصنيف بالاعتماد على مطابقة كلمات مفتاحية (بدون AI حقيقي).
+هذا يخلي ميزة "التصنيف الذكي" شغالة من اليوم الأول، وبيتم استبداله بـ Gemini
+بـ Sprint القادم بدون أي تغيير على الـ API أو الموبايل (نفس BaseCategorizer.suggest_category).
+"""
 from app.models.category import Category
 from app.services.categorizer.base import BaseCategorizer, CategorySuggestion
 
@@ -34,7 +36,7 @@ class RuleBasedCategorizer(BaseCategorizer):
                 reasoning="ما لقينا كلمة مفتاحية مطابقة — بيحتاج المستخدم يختار يدويًا",
             )
 
-
+        # ثقة مبسطة: أول مطابقة كلمة وحدة = 0.6، وكل كلمة إضافية بتزيد الثقة لحد 0.95 كحد أقصى
         confidence = min(0.6 + (best_score - 1) * 0.15, 0.95)
 
         return CategorySuggestion(

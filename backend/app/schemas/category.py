@@ -16,7 +16,7 @@ class CategoryOut(BaseModel):
 
 
 class CategoryCreate(BaseModel):
-    """Categorycreate documentation."""
+    """تصنيف خاص ينشئه المستخدم بنفسه (بالإضافة للتصنيفات الافتراضية)."""
     name: str
     icon: str = "tag"
     category_type: CategoryType = CategoryType.EXPENSE

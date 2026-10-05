@@ -1,4 +1,15 @@
-"""Module documentation."""
+"""
+SMS Import Service — Sprint 9، المرحلة 1 (استيراد يدوي من صندوق الوارد).
+
+المبادئ (نفس فلسفة OCR والـ SMS الملصوق):
+1. الموبايل يقرأ الرسائل ويفلتر محليًا (ما بيطلع من الجهاز إلا رسائل شكلها
+   مالي)، وهون بنحلل ونقترح — المستخدم يختار شو يستورد. Preview ما بيحفظ شي.
+2. الـ Confirm بيعيد التحليل من نص الرسالة نفسه على السيرفر: ما بنثق بأي
+   مبلغ/نوع جاي من الموبايل أصلًا (الـ schema حتى ما فيه حقول لهالقيم).
+3. منع التكرار بالبصمة (external_ref): hash من وقت استلام الرسالة ونصها.
+   نفس النص بوقتين مختلفين = معاملتين مختلفتين (تحويلين متطابقين فعليًا)،
+   ونفس الرسالة بنفس الوقت = معاملة وحدة مهما انستوردت مرات.
+"""
 import hashlib
 from datetime import datetime, timezone
 
@@ -13,7 +24,7 @@ from app.services import sms_parser_service
 
 
 def _as_utc(moment: datetime) -> datetime:
-
+    # توقيت بدون منطقة زمنية نعتبره UTC — الموبايل المفروض يبعت ISO بـ Z
     if moment.tzinfo is None:
         return moment.replace(tzinfo=timezone.utc)
     return moment.astimezone(timezone.utc)
@@ -25,7 +36,7 @@ def compute_external_ref(body: str, received_at: datetime) -> str:
 
 
 def _parse_unique_messages(messages: list[SmsMessageIn]):
-    """ parse unique messages documentation."""
+    """يحلل كل الرسائل، يتجاهل يلي ما انفهمت، وبيشيل التكرار داخل نفس الطلب."""
     seen: set[str] = set()
     items = []
     for message in messages:
@@ -77,10 +88,10 @@ def confirm_import(db: Session, user: User, messages: list[SmsMessageIn]) -> lis
     created: list[Transaction] = []
     for message, parsed, ref in items:
         if ref in existing:
-            continue
+            continue  # انستوردت قبل — تجاهل بصمت، مش خطأ
         transaction = Transaction(
             user_id=user.id,
-            category_id=None,
+            category_id=None,  # وصف تحويل مالي مجرد، ما بنخمّن له تصنيف — المستخدم يصنفها لاحقًا
             amount=parsed.amount,
             type=TransactionType(parsed.type),
             source=TransactionSource.SMS,
@@ -95,7 +106,7 @@ def confirm_import(db: Session, user: User, messages: list[SmsMessageIn]) -> lis
     try:
         db.commit()
     except IntegrityError:
-
+        # طلبين استيراد متزامنين لنفس الرسائل — قيد UNIQUE بقاعدة البيانات أوقف الثاني
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

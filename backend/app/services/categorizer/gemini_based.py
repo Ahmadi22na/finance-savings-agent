@@ -1,4 +1,14 @@
-"""Module documentation."""
+"""
+محرك التصنيف الذكي عبر Gemini — نفس التوقيع بالضبط يلي وعدنا فيه بـ base.py
+و factory.py من أول يوم: BaseCategorizer.suggest_category(). بقية النظام
+(transaction_service) ما بيعرف ولا بيهتم إنه المحرك تغيّر من كلمات مفتاحية
+لـ AI حقيقي.
+
+فرق مهم عن RuleBasedCategorizer: بيستخدم AI Provider حقيقي (نداء شبكة)،
+فلازم نتعامل مع فشل الشبكة/الـ API بلطف — نرجّع confidence=0.0 (بالضبط متل
+"ما لقينا تطابق" بالمحرك القديم)، أبدًا ما نرمي Exception يوقف عملية
+التسجيل السريع كاملة لمجرد إنه التصنيف الذكي فشل مؤقتًا.
+"""
 import json
 import logging
 from uuid import UUID
@@ -68,7 +78,7 @@ class GeminiCategorizer(BaseCategorizer):
         confidence = parsed.get("confidence")
 
         if category_id not in category_lookup or not isinstance(confidence, (int, float)):
-
+            # إما الموديل اخترع id مش موجود فعليًا بقائمتنا، أو ما لقى تصنيف مناسب
             return CategorySuggestion(
                 category_id=None, category_name=None, confidence=0.0,
                 reasoning="ما لقينا تصنيف مناسب بثقة كافية",

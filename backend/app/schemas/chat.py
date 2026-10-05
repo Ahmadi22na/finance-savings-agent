@@ -10,4 +10,4 @@ class ChatMessageOut(BaseModel):
 
 
 class NudgeOut(BaseModel):
-    nudge: str | None
+    nudge: str | None  # None يعني "ولا داعي لأي رسالة هلأ" — حالة طبيعية ومقصودة

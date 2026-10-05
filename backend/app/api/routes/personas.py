@@ -10,5 +10,7 @@ router = APIRouter(prefix="/personas", tags=["Personas"])
 
 @router.get("", response_model=list[PersonaOut])
 def list_personas(db: Session = Depends(get_db)):
-    """List personas documentation."""
+    """
+    ما محتاج توثيق (Auth) — هاي الشاشة تظهر أثناء الـ Onboarding قبل ما نعرف هوية المستخدم الكاملة.
+    """
     return persona_service.list_active_personas(db)

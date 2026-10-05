@@ -10,7 +10,10 @@ from app.models.mixins import UUIDPrimaryKeyMixin, TimestampMixin
 
 
 class IncomeType(str, enum.Enum):
-    """Incometype documentation."""
+    """
+    نوع الدخل: مهم جدًا لرشيد ليفهم السياق قبل ما ينبّه المستخدم.
+    مستخدم دخله متغير ما لازم يُقارن بنفس معايير مستخدم دخله ثابت.
+    """
     FIXED = "fixed"
     VARIABLE = "variable"
 
@@ -23,26 +26,26 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
-
+    # --- سياق الدخل (لفهم رشيد للمستخدم) ---
     income_type: Mapped[IncomeType] = mapped_column(
         SAEnum(IncomeType, name="income_type_enum"), default=IncomeType.VARIABLE
     )
     avg_monthly_income_estimate: Mapped[float | None] = mapped_column(nullable=True)
 
-
-
-
-
+    # تقدير عام لمصاريف المستخدم الأساسية شهريًا (أكل، مواصلات...) — يُملأ إما
+    # من إجابة المستخدم المباشرة لرشيد بالمحادثة، أو لاحقًا من تحليل تاريخ
+    # معاملاته الفعلي. معلومة عامة عن المستخدم (مش خاصة بهدف معيّن)، فأي هدف
+    # جديد بيستفيد منها تلقائيًا بدل ما رشيد يسأل من الصفر كل مرة.
     estimated_monthly_essentials: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
 
-
+    # --- تخصيص الوكيل ---
     agent_name: Mapped[str] = mapped_column(String(50), default="رشيد")
     persona_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("personas.id", ondelete="SET NULL"), nullable=True
     )
     has_completed_onboarding: Mapped[bool] = mapped_column(Boolean, default=False)
 
-
+    # --- العلاقات ---
     persona: Mapped["Persona | None"] = relationship(back_populates="users")
     goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user", cascade="all, delete-orphan")

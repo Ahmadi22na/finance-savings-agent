@@ -9,21 +9,24 @@ from app.schemas.transaction import TransactionQuickLogCreate
 from app.services import category_service
 from app.services.categorizer.factory import get_categorizer
 
-
-
+# تحت هذا الحد من الثقة، ما نطبّق التصنيف تلقائيًا — منرجعه كـ "اقتراح" بس
+# ومنسيب القرار النهائي للمستخدم بالموبايل (تصميم يحمي من تصنيف خاطئ صامت)
 AUTO_APPLY_CONFIDENCE_THRESHOLD = 0.6
 
 
 def create_quick_log_transaction(
     db: Session, user: User, data: TransactionQuickLogCreate
 ) -> tuple[Transaction, bool, float | None]:
-    """Create quick log transaction documentation."""
+    """
+    يرجّع (المعاملة, ai_suggested, suggestion_confidence) عشان الـ route يبني الـ Response
+    بدون ما يحتاج يعرف تفاصيل منطق التصنيف.
+    """
     ai_suggested = False
     suggestion_confidence: float | None = None
     category_id = data.category_id
 
     if category_id is None:
-
+        # مسار التصنيف الذكي: ما وصلنا category_id، لازم نحاول نخمّن من النص
         available_categories = category_service.list_categories_for_user(db, user)
         categorizer = get_categorizer()
         suggestion = categorizer.suggest_category(data.note or "", available_categories)
@@ -32,8 +35,8 @@ def create_quick_log_transaction(
             category_id = suggestion.category_id
             ai_suggested = True
             suggestion_confidence = suggestion.confidence
-
-
+        # لو ما قدر يخمّن، منسيب category_id فاضي — المعاملة تنحفظ بدون تصنيف
+        # والمستخدم يقدر يصنّفها يدويًا لاحقًا من شاشة المعاملات
 
     transaction = Transaction(
         user_id=user.id,

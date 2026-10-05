@@ -11,18 +11,22 @@ class GoalCreate(BaseModel):
     icon: str = "target"
     target_amount: float = Field(gt=0)
     deadline: date | None = None
-
-
+    # "مصروف ثابت شهري" — نفس الخطة العادية بالضبط، بس بتتصفّر تلقائيًا كل
+    # شهر لما توصل لهدفها بدل ما تضل مكتملة للأبد.
     is_recurring: bool = False
 
 
 class GoalContribution(BaseModel):
-    """Goalcontribution documentation."""
+    """إضافة مبلغ لتقدم الهدف (مثلاً بعد ما المستخدم يوفر مبلغ فعليًا)."""
     amount: float = Field(gt=0)
 
 
 class GoalReorderRequest(BaseModel):
-    """Goalreorderrequest documentation."""
+    """
+    ترتيب جديد كامل لكل خطط المستخدم النشطة، كلستة IDs بالترتيب المطلوب.
+    لازم تحتوي بالضبط نفس مجموعة الخطط النشطة الحالية — كل أو ولا شي،
+    عشان نتجنب حالة نص خطط مرتبة ونص لأ.
+    """
     ordered_goal_ids: list[uuid.UUID] = Field(min_length=1)
 
 

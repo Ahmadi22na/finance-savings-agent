@@ -1,4 +1,13 @@
-"""Module documentation."""
+"""
+Agent Action Service — رشيد يقترح تعديلات فعلية على بيانات المستخدم،
+وينفذها بس بعد موافقة صريحة (نفس مبدأ الأمان يلي حددناه بـ Sprint 0:
+أي اقتراح يبدأ بحالة PENDING، وما ينفّذ فعليًا إلا بعد /confirm صريح).
+
+نمط التوليد: نفس فلسفة nudge_service بالضبط — منطق Rule-based بسيط يقرر
+"متى" نقترح (فحص دوري)، والـ AI بيستخدم بس لتحديد "شو بالضبط" نقترح
+بالحالة يلي فعليًا محتاجة ذكاء (تصنيف نص حر). اقتراح المساهمة بالهدف
+Rule-based بالكامل، ما بيحتاج AI أصلاً.
+"""
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -18,11 +27,11 @@ from app.services import goal_service
 logger = logging.getLogger("rasheed.agent")
 
 SUGGESTION_LOOKBACK_DAYS = 7
-MAX_CATEGORY_SUGGESTIONS_PER_CHECK = 3
-GOAL_CONTRIBUTION_RATIO = 0.2
+MAX_CATEGORY_SUGGESTIONS_PER_CHECK = 3  # ما نغرق المستخدم باقتراحات كثيرة مرة وحدة
+GOAL_CONTRIBUTION_RATIO = 0.2  # نقترح إكمال 20% من المتبقي على الهدف
 
 
-
+# ---------- عرض وإدارة الاقتراحات ----------
 
 def list_pending_actions(db: Session, user: User) -> list[AgentAction]:
     return (
@@ -57,13 +66,26 @@ def reject_action(db: Session, user: User, action_id: UUID) -> AgentAction:
     return action
 
 
-DEDUP_WINDOW_MINUTES = 5
+DEDUP_WINDOW_MINUTES = 5  # نافذة منع التكرار — راجع الملاحظة بـ create_pending_action
 
 
 def create_pending_action(
     db: Session, user: User, action_type: str, payload: dict, reasoning: str | None = None
 ) -> AgentAction:
-    """Create pending action documentation."""
+    """
+    دالة مشتركة لإنشاء اقتراح PENDING جديد — تُستخدم من هالملف نفسه
+    (اقتراحات دورية) ومن agent_chat_service (اقتراحات مبنية على محادثة حرة
+    مع رشيد، مثل اقتراح هدف كامل بـ Sprint 5). مكان واحد لإنشاء أي اقتراح
+    بغض النظر عن مصدره.
+
+    حماية من التكرار: لو استغرق رشيد وقت طويل بالرد (مثلاً إعادة محاولة
+    Gemini) وتجاوز مهلة الاتصال بالموبايل، المستخدم بيشوف خطأ Timeout
+    وبيعيد إرسال نفس الرسالة — كل محاولة بتوصل السيرفر وتنجح لحالها فعليًا
+    وبتولّد اقتراح مستقل، فيطلع نفس الاقتراح مكرر بشاشة الاقتراحات. نمنعها:
+    لو في اقتراح PENDING بنفس النوع ونفس المحتوى بالضبط خلال آخر
+    DEDUP_WINDOW_MINUTES دقايق لنفس المستخدم، نرجّعه هو بدل ما ننشئ نسخة
+    ثانية.
+    """
     action_type_enum = AgentActionType(action_type)
     recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=DEDUP_WINDOW_MINUTES)
 
@@ -77,9 +99,9 @@ def create_pending_action(
         )
         .all()
     )
-
-
-
+    # مقارنة الـ payload بلغة بايثون مباشرة — العمود JSON عادي (مش JSONB)،
+    # فمقارنة == على مستوى الاستعلام مش مضمونة تشتغل نفس الشي بكل الأنظمة.
+    # عدد الاقتراحات المعلقة لمستخدم وحد صغير أصلًا، فمافي كلفة حقيقية هون.
     for existing in recent_pending:
         if existing.payload == payload:
             return existing
@@ -97,7 +119,11 @@ def create_pending_action(
 
 
 def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
-    """Confirm action documentation."""
+    """
+    ينفّذ الاقتراح فعليًا على قاعدة البيانات — هاي الدالة الوحيدة بكل
+    المشروع يلي فيها "رشيد يطبّق شي فعلي"، ومحصورة بمكان واحد واضح
+    وسهل المراجعة (مهم جدًا لأي كود بيلمس بيانات مالية).
+    """
     action = _get_pending_action_or_404(db, user, action_id)
 
     if action.action_type == AgentActionType.SUGGEST_CATEGORY_CORRECTION:
@@ -118,9 +144,9 @@ def confirm_action(db: Session, user: User, action_id: UUID) -> AgentAction:
 
 
 def _apply_category_correction(db: Session, user: User, action: AgentAction) -> None:
-
-
-
+    # الـ payload عمود JSON، فالـ UUIDs مخزّنة فيه كنص عادي (str) —
+    # لازم نحوّلهم لـ UUID حقيقي قبل أي استعلام أو تعيين قيمة، وإلا SQLAlchemy
+    # بيطلع خطأ (بعض قواعد البيانات بتتساهل، وبعضها لأ — الصح نحوّل دايمًا).
     try:
         transaction_id = UUID(action.payload.get("transaction_id"))
         new_category_id = UUID(action.payload.get("new_category_id"))
@@ -167,22 +193,22 @@ def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:
         user_id=user.id,
         title=title,
         target_amount=target_amount,
-
-
+        # priority: نفس منطق الإنشاء اليدوي بالضبط — آخر الترتيب، مش 0 دايمًا،
+        # عشان ما تتصادم كل الأهداف الجاية من الشات بنفس الأولوية قبل أول ترتيب يدوي.
         priority=goal_service._next_priority_for_user(db, user),
         is_recurring=is_recurring,
         last_reset_month=goal_service._current_month_key() if is_recurring else None,
-
-
+        # current_amount تبدأ 0 افتراضيًا — الهدف هون تخطيطي، المستخدم بيبلش
+        # يسجّل تقدمه فيه لاحقًا عبر التسجيل السريع أو اقتراحات المساهمة
     )
     db.add(goal)
 
 
 def _apply_income_log(db: Session, user: User, action: AgentAction) -> None:
-
-
-
-
+    # هذا بالضبط كان السبب الجذري لـ Bug 1: هذا النوع من الاقتراح كان موجود
+    # بالـ Enum ويتولّد صح من الشات، بس confirm_action() ما كان فيها حالة
+    # تتعامل معه أصلاً — فكان بيوقع على else ويرجّع 400 دايمًا، بغض النظر
+    # عن صحة البيانات. مش خطأ بالقيمة أو النوع، كان نقص كامل بالتنفيذ.
     amount = action.payload.get("amount")
     note = action.payload.get("note")
 
@@ -201,10 +227,14 @@ def _apply_income_log(db: Session, user: User, action: AgentAction) -> None:
     db.add(transaction)
 
 
-
+# ---------- توليد اقتراحات جديدة ----------
 
 def generate_suggestions(db: Session, user: User) -> list[AgentAction]:
-    """Generate suggestions documentation."""
+    """
+    يُستدعى دوريًا من الموبايل (مثلاً عند فتح شاشة الاقتراحات أو الـ Dashboard).
+    يفحص وضع المستخدم الحالي ويولّد اقتراحات جديدة لو في داعي فعلي —
+    قد يرجّع قائمة فاضية، وهذا رد طبيعي متوقع مش خطأ.
+    """
     new_actions: list[AgentAction] = []
     new_actions.extend(_suggest_category_corrections(db, user))
     new_actions.extend(_suggest_goal_contribution(db, user))
@@ -229,7 +259,7 @@ def _suggest_category_corrections(db: Session, user: User) -> list[AgentAction]:
     if not uncategorized:
         return []
 
-
+    # ما نكرر اقتراح لمعاملة عندها اقتراح PENDING أصلاً من فحص سابق
     already_suggested_ids = {
         a.payload.get("transaction_id")
         for a in db.query(AgentAction).filter(
@@ -285,7 +315,7 @@ def _suggest_category_corrections(db: Session, user: User) -> list[AgentAction]:
 def _ask_ai_for_category(
     provider, transaction: Transaction, category_lookup: dict[str, str]
 ) -> tuple[str, str] | None:
-    """ ask ai for category documentation."""
+    """يرجّع (category_id, reasoning) لو رشيد قدر يقترح تصنيف صالح، أو None لو لأ."""
     category_options = "\n".join(f"- {cid}: {name}" for cid, name in category_lookup.items())
     prompt = (
         f'معاملة مالية بدون تصنيف، وصفها: "{transaction.note or ""}"\n'
@@ -303,7 +333,7 @@ def _ask_ai_for_category(
         logger.error("Category suggestion AI call failed: %s", reply.raw_error)
         return None
 
-
+    # نتحمّل إنه بعض النماذج بترجع الـ JSON ملفوف بـ ```json ... ``` رغم التعليمات الصريحة
     cleaned = reply.text.strip().strip("`").removeprefix("json").strip()
 
     try:
@@ -315,7 +345,7 @@ def _ask_ai_for_category(
         return None
 
     if category_id not in category_lookup:
-
+        # رشيد اقترح id مش موجود فعليًا بقائمتنا — نتجاهل الاقتراح بدل ما نخزن بيانات فاسدة
         logger.warning("AI suggested unknown category_id: %r", category_id)
         return None
 
@@ -325,7 +355,7 @@ def _ask_ai_for_category(
 def _suggest_goal_contribution(db: Session, user: User) -> list[AgentAction]:
     mood = compute_mood_state(db, user)
     if mood.state != MoodState.ENERGIZED:
-        return []
+        return []  # نقترح مساهمة بس لما المستخدم بوضع جيد فعليًا، مش لما يكون قلقان
 
     active_goal = (
         db.query(Goal)
@@ -352,9 +382,9 @@ def _suggest_goal_contribution(db: Session, user: User) -> list[AgentAction]:
     if remaining <= 0:
         return []
 
-
-
-
+    # منطق مبدئي بسيط (Rule-based) — نقترح إكمال نسبة من المتبقي.
+    # قابل للتحسين لاحقًا ليعتمد على دخل المستخدم الفعلي ونمط توفيره،
+    # بدل نسبة ثابتة للجميع.
     suggested_amount = round(remaining * GOAL_CONTRIBUTION_RATIO, 2)
     if suggested_amount <= 0:
         return []

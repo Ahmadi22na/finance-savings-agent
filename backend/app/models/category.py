@@ -9,14 +9,22 @@ from app.models.mixins import UUIDPrimaryKeyMixin, TimestampMixin
 
 
 class CategoryType(str, enum.Enum):
-    """Categorytype documentation."""
+    """
+    نوع التصنيف: بيحدد وين يظهر بواجهة التسجيل السريع.
+    EXPENSE تظهر لما المستخدم يسجّل مصروف، INCOME لما يسجّل دخل،
+    BOTH تظهر بالحالتين (مثال: "تحويل بين حسابات").
+    """
     EXPENSE = "expense"
     INCOME = "income"
     BOTH = "both"
 
 
 class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """Category documentation."""
+    """
+    نظام تصنيفات هجين: تصنيفات افتراضية (is_default=True, user_id=None) موجودة لكل المستخدمين،
+    بالإضافة لتصنيفات خاصة يقدر المستخدم يضيفها. هيك رشيد يقدر يقترح تصنيف تلقائي
+    من نفس القائمة يلي المستخدم شايفها، بدون ما يفرض عليه تصنيفات غريبة.
+    """
     __tablename__ = "categories"
 
     name: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -26,8 +34,8 @@ class Category(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         SAEnum(CategoryType, name="category_type_enum"), default=CategoryType.EXPENSE
     )
 
-
-
+    # كلمات مفتاحية (عامية + فصحى) تُستخدم بمحرك التصنيف الذكي المبدئي (Rule-Based)
+    # قبل ما يتفعّل Gemini لاحقًا. مثال لتصنيف "مطاعم": ["مطعم", "أكل", "برجر", "بيتزا"]
     keywords: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     user_id: Mapped[UUID | None] = mapped_column(

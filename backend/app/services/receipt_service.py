@@ -1,4 +1,16 @@
-"""Module documentation."""
+"""
+Receipt Scanning Service — Sprint 8 (OCR).
+
+نفس فلسفة _ask_ai_for_category() بالضبط (agent_action_service.py): برومبت
+واضح، رد JSON صارم، تحقق من صحة أي id يرجعه الموديل قبل ما نثق فيه. الفرق
+الوحيد هون إنه المدخل صورة مش نص.
+
+قرار تصميم مهم: هاد الملف ما بينشئ Transaction أبدًا. بيرجع بس "مسودة"
+(Draft) للموبايل يعرضها بنفس شاشة التسجيل السريع الموجودة أصلاً، معبّاة
+مسبقًا، ويراجعها المستخدم ويعدّلها قبل ما يحفظ — بالضبط زي ما كان مخطط له
+بالخطة الأصلية ("مراجعة المستخدم للنتيجة قبل الحفظ، مهم لبناء الثقة").
+هيك ما في احتمال نحفظ مبلغ غلط قرأه الـ OCR غلط بدون ما المستخدم ينتبه.
+"""
 import json
 import logging
 
@@ -11,7 +23,7 @@ from app.schemas.transaction import ReceiptScanResult
 
 logger = logging.getLogger("rasheed.agent")
 
-
+# صيغ الصور يلي منقبلها فعليًا — نفس يلي Gemini Vision بيدعمها رسميًا
 SUPPORTED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
@@ -51,7 +63,7 @@ def scan_receipt(
         logger.error("Receipt scan AI call failed: %s", reply.raw_error)
         return ReceiptScanResult(amount=None, category_id=None, category_name=None, note=None, readable=False)
 
-
+    # نتحمّل إنه بعض النماذج بترجع الـ JSON ملفوف بـ ```json ... ``` رغم التعليمات الصريحة
     cleaned = reply.text.strip().strip("`").removeprefix("json").strip()
 
     try:
@@ -67,7 +79,7 @@ def scan_receipt(
     category_id = parsed.get("category_id")
     category_name = None
     if category_id not in category_lookup:
-
+        # رشيد اقترح id مش موجود فعليًا بقائمتنا — نتجاهله بدل ما نرجّع بيانات فاسدة
         category_id = None
     else:
         category_name = category_lookup[category_id]
@@ -76,7 +88,7 @@ def scan_receipt(
     if not isinstance(note, str) or not note.strip():
         note = None
 
-
+    # "قابلة للقراءة" لو طلع منها رقم على الأقل — حتى لو التصنيف ما انعرف
     readable = amount is not None
 
     return ReceiptScanResult(

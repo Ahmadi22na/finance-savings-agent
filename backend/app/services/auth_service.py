@@ -1,4 +1,9 @@
-"""Module documentation."""
+"""
+Service Layer للمصادقة.
+القاعدة: الـ API routes (app/api) ما لازم يحتوي منطق عمل (business logic) —
+دورها بس استقبال الطلب وإرجاع الرد. كل المنطق الفعلي هون بالـ Service،
+هيك نقدر نعيد استخدامه (مثلاً من الـ Agent لاحقًا) ونختبره بمعزل عن HTTP.
+"""
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
