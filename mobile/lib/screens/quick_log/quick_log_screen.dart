@@ -8,7 +8,7 @@ import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../core/api_client.dart';
 import '../../models/category.dart';
-import '../../models/sms_parse_result.dart';
+
 import '../../theme/app_theme.dart';
 import '../../theme/icon_mapper.dart';
 import '../../widgets/income_allocation_sheet.dart';
@@ -34,8 +34,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
     _amountController.addListener(() => setState(() {}));
     _noteController.addListener(() {
-
-
       if (_noteController.text.isNotEmpty && _selectedCategory != null) {
         setState(() => _selectedCategory = null);
       } else {
@@ -67,7 +65,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   }
 
   String _formatAmount(double value) {
-    return value == value.roundToDouble() ? value.toStringAsFixed(0) : value.toStringAsFixed(2);
+    return value == value.roundToDouble()
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(2);
   }
 
   Future<void> _scanReceipt() async {
@@ -92,23 +92,25 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
     );
     if (source == null || !mounted) return;
 
-    final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    final picked =
+        await ImagePicker().pickImage(source: source, imageQuality: 85);
     if (picked == null || !mounted) return;
 
     setState(() => _isScanning = true);
     try {
-      final result = await ref.read(transactionServiceProvider).scanReceipt(File(picked.path));
+      final result = await ref
+          .read(transactionServiceProvider)
+          .scanReceipt(File(picked.path));
 
       if (!result.readable) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('ما قدرنا نقرأ الفاتورة بوضوح — جرب صورة أوضح أو عبّيها يدوي'),
+            content: Text(
+                'ما قدرنا نقرأ الفاتورة بوضوح — جرب صورة أوضح أو عبّيها يدوي'),
           ));
         }
         return;
       }
-
-
 
       Category? matchedCategory;
       if (result.categoryId != null) {
@@ -124,9 +126,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       if (!mounted) return;
       setState(() {
         _type = 'expense';
-        if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
-
-
+        if (result.amount != null)
+          _amountController.text = _formatAmount(result.amount!);
 
         if (matchedCategory != null) {
           _selectedCategory = matchedCategory;
@@ -143,7 +144,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         ));
       }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _isScanning = false);
     }
@@ -170,7 +173,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
             child: const Text('إلغاء'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: const Text('حلّل'),
           ),
         ],
@@ -191,9 +195,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
 
       setState(() {
         if (result.type != null) _type = result.type!;
-        if (result.amount != null) _amountController.text = _formatAmount(result.amount!);
-
-
+        if (result.amount != null)
+          _amountController.text = _formatAmount(result.amount!);
 
         if (result.note != null) {
           _noteController.text = result.note!;
@@ -207,7 +210,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         ));
       }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
@@ -221,9 +226,10 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         amount: double.parse(_amountController.text.trim()),
         type: _type,
         categoryId: _selectedCategory?.id,
-        note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
+        note: _noteController.text.trim().isEmpty
+            ? null
+            : _noteController.text.trim(),
       );
-
 
       ref.invalidate(goalsListProvider);
       ref.invalidate(recentTransactionsProvider);
@@ -231,13 +237,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       if (!mounted) return;
 
       if (result.aiSuggested && result.category != null) {
-        final confidencePercent = ((result.suggestionConfidence ?? 0) * 100).toStringAsFixed(0);
+        final confidencePercent =
+            ((result.suggestionConfidence ?? 0) * 100).toStringAsFixed(0);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('رشيد صنّفها "${result.category!.name}" (ثقة $confidencePercent%)'),
+          content: Text(
+              'رشيد صنّفها "${result.category!.name}" (ثقة $confidencePercent%)'),
         ));
       }
-
-
 
       if (_type == 'income' && result.unallocatedAmount > 0) {
         await maybePromptIncomeAllocation(context, ref, result);
@@ -247,7 +253,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
       Navigator.of(context).pop();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -257,8 +264,9 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesListProvider);
     final user = ref.watch(currentUserProvider);
-    final accentColor =
-        user?.persona != null ? PersonaColors.fromKey(user!.persona!.key) : PersonaColors.energetic;
+    final accentColor = user?.persona != null
+        ? PersonaColors.fromKey(user!.persona!.key)
+        : PersonaColors.energetic;
 
     return Scaffold(
       appBar: AppBar(
@@ -267,7 +275,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
           IconButton(
             icon: _isScanning
                 ? const SizedBox(
-                    height: 20, width: 20,
+                    height: 20,
+                    width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.camera_alt_outlined),
@@ -286,7 +295,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-
             Row(
               children: [
                 Expanded(
@@ -315,11 +323,10 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               ],
             ),
             const SizedBox(height: 20),
-
-
             TextField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               decoration: const InputDecoration(
@@ -329,8 +336,6 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               ),
             ),
             const Divider(height: 32),
-
-
             const Text('اختار تصنيف بضغطة وحدة',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),
@@ -339,7 +344,8 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               error: (error, _) => Text('ما قدرنا نجيب التصنيفات: $error'),
               data: (categories) {
                 final relevant = categories
-                    .where((c) => c.categoryType == _type || c.categoryType == 'both')
+                    .where((c) =>
+                        c.categoryType == _type || c.categoryType == 'both')
                     .toList();
                 return Wrap(
                   spacing: 10,
@@ -352,19 +358,24 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         width: 84,
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 6),
                         decoration: BoxDecoration(
-                          color: isSelected ? accentColor.withValues(alpha: 0.12) : Colors.grey.shade100,
+                          color: isSelected
+                              ? accentColor.withValues(alpha: 0.12)
+                              : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: isSelected ? accentColor : Colors.transparent,
+                            color:
+                                isSelected ? accentColor : Colors.transparent,
                             width: 2,
                           ),
                         ),
                         child: Column(
                           children: [
                             Icon(iconForKey(category.icon),
-                                color: isSelected ? accentColor : Colors.black54),
+                                color:
+                                    isSelected ? accentColor : Colors.black54),
                             const SizedBox(height: 6),
                             Text(category.name,
                                 textAlign: TextAlign.center,
@@ -379,16 +390,15 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                 );
               },
             ),
-
             const SizedBox(height: 24),
             Row(children: const [
               Expanded(child: Divider()),
-              Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('أو')),
+              Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text('أو')),
               Expanded(child: Divider()),
             ]),
             const SizedBox(height: 16),
-
-
             const Text('اكتب وصف بسيط ورشيد بيصنّفها إلك',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),
@@ -399,15 +409,16 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
                 hintText: 'مثال: قهوة مع صاحبي',
               ),
             ),
-
             const SizedBox(height: 32),
             ElevatedButton(
               onPressed: (_canSubmit && !_isSubmitting) ? _submit : null,
               style: ElevatedButton.styleFrom(backgroundColor: accentColor),
               child: _isSubmitting
                   ? const SizedBox(
-                      height: 20, width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : const Text('حفظ'),
             ),
@@ -440,9 +451,11 @@ class _TypeToggleButton extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
+          color:
+              isSelected ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: isSelected ? color : Colors.transparent, width: 2),
+          border: Border.all(
+              color: isSelected ? color : Colors.transparent, width: 2),
         ),
         child: Text(
           label,
