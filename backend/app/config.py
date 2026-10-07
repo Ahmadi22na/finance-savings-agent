@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # هو إذا اسم AGENT_MODEL لسا مدعوم عبر https://aistudio.google.com
     GEMINI_API_KEY: str = ""
     AGENT_MODEL: str = "gemini-3.6-flash"
+    # موديل بديل اختياري: لو الموديل الأساسي رجّع 503 (ازدحام) بعد كل المحاولات، بنجرّب هاد مرة وحدة.
+    # اتركه فاضي لتعطيل الميزة. لازم يكون اسم موديل مدعوم فعلاً على حسابك (شوفه من AI Studio).
+    AGENT_FALLBACK_MODEL: str = ""
     AGENT_DEFAULT_NAME: str = "رشيد"
 
     # --- CORS ---
