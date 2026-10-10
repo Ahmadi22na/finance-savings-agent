@@ -15,6 +15,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.core.log_safety import describe_text, safe_error
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentAction, AgentActionType, AgentActionStatus
@@ -330,7 +331,7 @@ def _ask_ai_for_category(
         user_message=prompt,
     )
     if reply.raw_error:
-        logger.error("Category suggestion AI call failed: %s", reply.raw_error)
+        logger.error("Category suggestion AI call failed: %s", safe_error(reply.raw_error))
         return None
 
     # نتحمّل إنه بعض النماذج بترجع الـ JSON ملفوف بـ ```json ... ``` رغم التعليمات الصريحة
@@ -341,12 +342,12 @@ def _ask_ai_for_category(
         category_id = parsed["category_id"]
         reasoning = parsed.get("reasoning", "")
     except (json.JSONDecodeError, KeyError, TypeError):
-        logger.error("Could not parse category suggestion JSON: %r", reply.text)
+        logger.error("Could not parse category suggestion JSON: %s", describe_text(reply.text))
         return None
 
     if category_id not in category_lookup:
         # رشيد اقترح id مش موجود فعليًا بقائمتنا — نتجاهل الاقتراح بدل ما نخزن بيانات فاسدة
-        logger.warning("AI suggested unknown category_id: %r", category_id)
+        logger.warning("AI suggested unknown category_id: %s", describe_text(category_id))
         return None
 
     return category_id, reasoning

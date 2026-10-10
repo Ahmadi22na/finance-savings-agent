@@ -9,8 +9,19 @@ class ChatMessageCreate(BaseModel):
 
 class ChatMessageOut(BaseModel):
     reply: str = Field(description="رد رشيد (نص عادي، بدون أي وسوم داخلية)")
+    ai_available: bool = Field(
+        default=True,
+        description=(
+            "false = تعذّر الوصول لخدمة الذكاء الاصطناعي: `reply` رسالة اعتذار، ولم تُحفظ الرسالة "
+            "بسجل المحادثة، فإعادة إرسالها آمنة."
+        ),
+    )
 
-    model_config = {"json_schema_extra": {"examples": [{"reply": "باقيلك 90 دينار على اللابتوب، كمل بنفس الوتيرة!"}]}}
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"reply": "باقيلك 90 دينار على اللابتوب، كمل بنفس الوتيرة!", "ai_available": True}]
+        }
+    }
 
 
 class NudgeOut(BaseModel):

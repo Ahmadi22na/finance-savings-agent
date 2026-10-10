@@ -22,7 +22,8 @@ router = APIRouter(prefix="/agent", tags=["Agent"], responses=UNAUTHORIZED)
         "يرسل رسالة المستخدم لرشيد ويرجّع رده بشخصيته المختارة، مع آخر 20 رسالة كسياق "
         "للمحادثة. قد يولّد رشيد أثناء الرد اقتراحات معلّقة (هدف جديد، تسجيل دخل...) تظهر "
         "لاحقًا في `GET /agent/actions` ولا تُنفَّذ إلا بتأكيد صريح. عند ازدحام خدمة الذكاء "
-        "الاصطناعي يرجع الرد 200 مع رسالة اعتذار نصية داخل `reply`."
+        "الاصطناعي يرجع الرد 200 مع رسالة اعتذار داخل `reply` والحقل `ai_available=false`، ولا تُحفظ "
+        "الرسالة بسجل المحادثة، فإعادة إرسالها آمنة."
     ),
     responses=bad_request("المستخدم لم يُكمل الـ Onboarding ولم يختر شخصية لرشيد بعد."),
 )
@@ -31,8 +32,8 @@ def chat_with_agent(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    reply = agent_chat_service.send_message_to_agent(db, current_user, data.message)
-    return ChatMessageOut(reply=reply)
+    result = agent_chat_service.send_message_to_agent(db, current_user, data.message)
+    return ChatMessageOut(reply=result.text, ai_available=result.ai_available)
 
 
 @router.get(

@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.log_safety import safe_error
 from app.agent.mood_engine import compute_mood_state, build_full_system_prompt, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentInteraction, InteractionTrigger
@@ -70,7 +71,7 @@ def check_and_generate_nudge(db: Session, user: User) -> str | None:
     reply = provider.generate_reply(full_system_prompt, NUDGE_INSTRUCTION)
 
     if reply.raw_error:
-        logger.error("Gemini provider error while generating nudge for user %s: %s", user.id, reply.raw_error)
+        logger.error("Gemini provider error while generating nudge for user %s: %s", user.id, safe_error(reply.raw_error))
         return None  # ما نبعث Nudge فاشل أو فاضي للمستخدم — بس نسجل ونسكت هالمرة
 
     db.add(AgentInteraction(

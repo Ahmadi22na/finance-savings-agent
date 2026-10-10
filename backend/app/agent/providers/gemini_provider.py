@@ -17,6 +17,7 @@ import time
 from google import genai
 from google.genai.errors import ClientError, ServerError
 
+from app.core.log_safety import safe_error
 from app.agent.providers.base import BaseAIProvider, AgentReply, ConversationTurn
 from app.config import settings
 
@@ -93,7 +94,7 @@ class GeminiProvider(BaseAIProvider):
 
                 except ClientError as e:
                     code = getattr(e, "code", None)
-                    logger.warning("Gemini client error (model=%s, code=%s): %s", model, code, e)
+                    logger.warning("Gemini client error (model=%s, code=%s): %s", model, code, safe_error(e))
                     if code == 404 and has_next_model:
                         last_error = e
                         break  # الموديل مش متوفر — جرّب البديل
@@ -103,7 +104,7 @@ class GeminiProvider(BaseAIProvider):
                     last_error = e
                     logger.warning(
                         "Gemini server error (model=%s, attempt=%s/%s): %s",
-                        model, attempt, MAX_RETRIES_ON_SERVER_ERROR, e,
+                        model, attempt, MAX_RETRIES_ON_SERVER_ERROR, safe_error(e),
                     )
                     if attempt < MAX_RETRIES_ON_SERVER_ERROR:
                         time.sleep(RETRY_DELAY_SECONDS * attempt)

@@ -13,6 +13,7 @@ import json
 import logging
 from uuid import UUID
 
+from app.core.log_safety import describe_text, safe_error
 from app.agent.providers.base import BaseAIProvider
 from app.models.category import Category
 from app.services.categorizer.base import BaseCategorizer, CategorySuggestion
@@ -58,7 +59,7 @@ class GeminiCategorizer(BaseCategorizer):
         )
 
         if reply.raw_error:
-            logger.error("GeminiCategorizer AI call failed: %s", reply.raw_error)
+            logger.error("GeminiCategorizer AI call failed: %s", safe_error(reply.raw_error))
             return CategorySuggestion(
                 category_id=None, category_name=None, confidence=0.0,
                 reasoning="تعذر الوصول لخدمة التصنيف الذكي، جرب تختار يدويًا",
@@ -68,7 +69,7 @@ class GeminiCategorizer(BaseCategorizer):
         try:
             parsed = json.loads(cleaned)
         except json.JSONDecodeError:
-            logger.error("GeminiCategorizer could not parse JSON: %r", reply.text)
+            logger.error("GeminiCategorizer could not parse JSON: %s", describe_text(reply.text))
             return CategorySuggestion(
                 category_id=None, category_name=None, confidence=0.0,
                 reasoning="رد غير مفهوم من محرك التصنيف",

@@ -1,10 +1,12 @@
 import json
 import logging
 import re
+from dataclasses import dataclass
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.log_safety import describe_text, safe_error
 from app.agent.mood_engine import compute_mood_state, build_full_system_prompt
 from app.agent.financial_context import get_essentials_estimate
 from app.agent.providers.base import ConversationTurn
@@ -83,7 +85,7 @@ def _extract_and_strip_block(pattern: re.Pattern, text: str) -> tuple[dict | Non
     try:
         data = json.loads(match.group(1).strip())
     except json.JSONDecodeError:
-        logger.warning("Could not parse protocol block: %r", match.group(1))
+        logger.warning("Could not parse protocol block: %s", describe_text(match.group(1)))
         return None, cleaned_text
     return data, cleaned_text
 
@@ -103,7 +105,7 @@ def _handle_goal_proposal(db: Session, user: User, data: dict, reasoning: str) -
     is_recurring = bool(data.get("is_recurring", False))
 
     if not title or not isinstance(target_amount, (int, float)) or target_amount <= 0:
-        logger.warning("Incomplete goal proposal from AI, ignoring: %r", data)
+        logger.warning("Incomplete goal proposal from AI, ignoring (keys=%s)", sorted(data))
         return
 
     agent_action_service.create_pending_action(
@@ -124,7 +126,7 @@ def _handle_income_log_proposal(db: Session, user: User, data: dict, reasoning: 
     note = data.get("note", "")
 
     if not isinstance(amount, (int, float)) or amount <= 0:
-        logger.warning("Incomplete income log proposal from AI, ignoring: %r", data)
+        logger.warning("Incomplete income log proposal from AI, ignoring (keys=%s)", sorted(data))
         return
 
     agent_action_service.create_pending_action(
@@ -135,7 +137,14 @@ def _handle_income_log_proposal(db: Session, user: User, data: dict, reasoning: 
     )
 
 
-def send_message_to_agent(db: Session, user: User, message: str) -> str:
+@dataclass
+class ChatResult:
+    text: str
+    # False = تعذّر الوصول للذكاء الاصطناعي؛ النص رسالة اعتذار ولم يُحفظ شيء بسجل المحادثة
+    ai_available: bool = True
+
+
+def send_message_to_agent(db: Session, user: User, message: str) -> ChatResult:
     if user.persona is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -157,29 +166,31 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
     reply = provider.generate_reply(full_system_prompt, message, history=history)
 
     if reply.raw_error:
-        logger.error("Gemini provider error for user %s: %s", user.id, reply.raw_error)
-        raw_reply_text = reply.text
-    else:
-        raw_reply_text = reply.text
+        logger.error("Gemini provider error for user %s: %s", user.id, safe_error(reply.raw_error))
+        # فشل الذكاء الاصطناعي: ما منحفظ رسالة المستخدم ولا رسالة الاعتذار بسجل المحادثة.
+        # هيك إعادة الإرسال آمنة (ما في تكرار)، وما بيتلوّث سياق Gemini برسائل الاعتذار.
+        return ChatResult(text=reply.text, ai_available=False)
 
-        essentials_data, raw_reply_text = _extract_and_strip_block(ESSENTIALS_UPDATE_PATTERN, raw_reply_text)
-        if essentials_data:
-            _handle_essentials_update(db, user, essentials_data)
+    raw_reply_text = reply.text
 
-        # هون كان السبب الجذري: كنا نستدعي _handle_income_log_proposal() بـ
-        # reasoning مأخوذ من raw_reply_text فور ما نشيل كتلة الدخل بس —
-        # بس لسا كتلة GOAL_PROPOSAL (لو موجودة بنفس الرد، زي لما رشيد يسجل
-        # دخل ويقترح هدف بنفس الرسالة) ما انشالت بعد، فالنص الخام لكتلة
-        # الهدف كان يتسرب حرفيًا جوا reasoning اقتراح الدخل المعروض للمستخدم.
-        # الحل: نشيل كل الكتل أول، وبعدين نستخدم نفس النص النظيف الواحد
-        # كـ reasoning لأي اقتراح نتج، مهما كان عددهم بنفس الرد.
-        income_data, raw_reply_text = _extract_and_strip_block(INCOME_LOG_PATTERN, raw_reply_text)
-        goal_data, raw_reply_text = _extract_and_strip_block(GOAL_PROPOSAL_PATTERN, raw_reply_text)
+    essentials_data, raw_reply_text = _extract_and_strip_block(ESSENTIALS_UPDATE_PATTERN, raw_reply_text)
+    if essentials_data:
+        _handle_essentials_update(db, user, essentials_data)
 
-        if income_data:
-            _handle_income_log_proposal(db, user, income_data, reasoning=raw_reply_text[:300])
-        if goal_data:
-            _handle_goal_proposal(db, user, goal_data, reasoning=raw_reply_text[:300])
+    # هون كان السبب الجذري: كنا نستدعي _handle_income_log_proposal() بـ
+    # reasoning مأخوذ من raw_reply_text فور ما نشيل كتلة الدخل بس —
+    # بس لسا كتلة GOAL_PROPOSAL (لو موجودة بنفس الرد، زي لما رشيد يسجل
+    # دخل ويقترح هدف بنفس الرسالة) ما انشالت بعد، فالنص الخام لكتلة
+    # الهدف كان يتسرب حرفيًا جوا reasoning اقتراح الدخل المعروض للمستخدم.
+    # الحل: نشيل كل الكتل أول، وبعدين نستخدم نفس النص النظيف الواحد
+    # كـ reasoning لأي اقتراح نتج، مهما كان عددهم بنفس الرد.
+    income_data, raw_reply_text = _extract_and_strip_block(INCOME_LOG_PATTERN, raw_reply_text)
+    goal_data, raw_reply_text = _extract_and_strip_block(GOAL_PROPOSAL_PATTERN, raw_reply_text)
+
+    if income_data:
+        _handle_income_log_proposal(db, user, income_data, reasoning=raw_reply_text[:300])
+    if goal_data:
+        _handle_goal_proposal(db, user, goal_data, reasoning=raw_reply_text[:300])
 
     db.add(AgentInteraction(
         user_id=user.id, trigger_type=InteractionTrigger.USER_CHAT,
@@ -191,4 +202,4 @@ def send_message_to_agent(db: Session, user: User, message: str) -> str:
     ))
     db.commit()
 
-    return raw_reply_text
+    return ChatResult(text=raw_reply_text)

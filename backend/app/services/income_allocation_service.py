@@ -19,9 +19,9 @@ from app.schemas.goal import GoalContribution
 from app.schemas.transaction import IncomeAllocationRequest
 from app.services import goal_service, transaction_service
 
-# سماحية بسيطة لأخطاء التقريب العشري (سنت أو أقل) — مش لازم تكون المطابقة
-# حرفية 100% بين مجموع التوزيع والمبلغ المتاح
-ROUNDING_TOLERANCE = 0.01
+# المبالغ بتتخزّن بخانتين عشريتين (Numeric(12,2))، فكل مبلغ بنقرّبه لخانتين قبل أي مقارنة أو تطبيق.
+# هيك أخطاء الفاصلة العائمة (مثل 0.1 + 0.2) ما بتأثر، وكمان مجموع التوزيع ما بيتجاوز الدخل ولا بمقدار 0.01.
+MONEY_DECIMALS = 2
 
 
 def get_allocated_amount(db: Session, transaction_id: uuid.UUID) -> float:
@@ -104,25 +104,32 @@ def allocate_income(
             detail="ما بتقدر توزع على خطة مو نشطة (منجزة أو متروكة)",
         )
 
-    requested_total = sum(item.amount for item in data.allocations)
-    already_allocated = get_allocated_amount(db, transaction.id)
-    available = float(transaction.amount) - already_allocated
-    if requested_total > available + ROUNDING_TOLERANCE:
+    amounts = [round(item.amount, MONEY_DECIMALS) for item in data.allocations]
+    if any(amount <= 0 for amount in amounts):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"المبلغ المطلوب توزيعه ({requested_total}) أكبر من المتاح فعليًا من هذا الدخل ({available:.2f})",
+            detail="كل مبلغ بالتوزيع لازم يكون 0.01 على الأقل",
+        )
+
+    requested_total = round(sum(amounts), MONEY_DECIMALS)
+    already_allocated = get_allocated_amount(db, transaction.id)
+    available = round(float(transaction.amount) - already_allocated, MONEY_DECIMALS)
+    if requested_total > available:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"المبلغ المطلوب توزيعه ({requested_total:.2f}) أكبر من المتاح فعليًا من هذا الدخل ({available:.2f})",
         )
 
     updated_goals = []
     leftover_unallocated = 0.0
-    for item in data.allocations:
+    for item, amount in zip(data.allocations, amounts):
         goal = goals_by_id[item.goal_id]
         # الحد الأقصى يلي فعليًا محتاجه الهدف — ما بنسمح نعبّيه فوق سقفه.
         # أي جزء زايد عن الحاجة يضل "غير موزّع" على المعاملة (المستخدم قرر
         # وين يحطه لاحقًا)، مش بيضيع وبيصير current_amount غلط أكبر من الهدف.
-        remaining_capacity = float(goal.target_amount) - float(goal.current_amount)
-        amount_to_apply = min(item.amount, remaining_capacity)
-        leftover_unallocated += item.amount - amount_to_apply
+        remaining_capacity = round(float(goal.target_amount) - float(goal.current_amount), MONEY_DECIMALS)
+        amount_to_apply = min(amount, remaining_capacity)
+        leftover_unallocated += amount - amount_to_apply
 
         if amount_to_apply <= 0:
             continue  # الهدف مكتفي فعليًا (احتمال نادر: سباق تزامن)، تجاهل هالعنصر

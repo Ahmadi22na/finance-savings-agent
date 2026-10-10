@@ -6,6 +6,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.log_safety import install_log_redaction
 from app.config import settings
 from app.api.docs import APP_DESCRIPTION, TAGS_METADATA
 from app.api.routes import auth, users, categories, transactions, goals, personas, onboarding, agent
@@ -29,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+install_log_redaction()  # منع تسرب المفاتيح والتوكنات للسجلات
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")

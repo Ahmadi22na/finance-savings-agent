@@ -16,6 +16,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.log_safety import describe_text, safe_error
 from app.agent.providers.base import BaseAIProvider
 from app.models.category import Category
 from app.models.user import User
@@ -60,7 +61,7 @@ def scan_receipt(
     )
 
     if reply.raw_error:
-        logger.error("Receipt scan AI call failed: %s", reply.raw_error)
+        logger.error("Receipt scan AI call failed: %s", safe_error(reply.raw_error))
         return ReceiptScanResult(amount=None, category_id=None, category_name=None, note=None, readable=False)
 
     # نتحمّل إنه بعض النماذج بترجع الـ JSON ملفوف بـ ```json ... ``` رغم التعليمات الصريحة
@@ -69,7 +70,7 @@ def scan_receipt(
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
-        logger.error("Could not parse receipt scan JSON: %r", reply.text)
+        logger.error("Could not parse receipt scan JSON: %s", describe_text(reply.text))
         return ReceiptScanResult(amount=None, category_id=None, category_name=None, note=None, readable=False)
 
     amount = parsed.get("amount")

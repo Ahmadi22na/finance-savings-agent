@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     APP_NAME: str = "Rasheed - Finance Savings Agent"
     ENVIRONMENT: str = "development"  # development | staging | production
     DEBUG: bool = True
+    # يطبع كل استعلامات SQL بالـ logs (للتعلم والتصحيح فقط). افتراضيًا مطفّي: حتى مع إخفاء القيم،
+    # الأفضل ما تنطبع الاستعلامات بالإنتاج. بالإنتاج بيتجاهل هالإعداد دايمًا.
+    SQL_ECHO: bool = False
 
     # --- Database ---
     DATABASE_URL: str = "postgresql://rasheed_user:rasheed_pass@db:5432/rasheed_db"
