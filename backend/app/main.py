@@ -7,12 +7,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.api.docs import APP_DESCRIPTION, TAGS_METADATA
 from app.api.routes import auth, users, categories, transactions, goals, personas, onboarding, agent
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Backend API لتطبيق إدارة المال والتوفير مع وكيل الذكاء الاصطناعي رشيد",
+    description=APP_DESCRIPTION,
     version="0.1.0",
+    openapi_tags=TAGS_METADATA,
+    swagger_ui_parameters={
+        "persistAuthorization": True,  # يحفظ التوكن بين تحديثات الصفحة
+        "displayRequestDuration": True,
+        "docExpansion": "list",
+    },
 )
 
 app.add_middleware(
@@ -33,7 +40,12 @@ app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(agent.router, prefix="/api/v1")
 
 
-@app.get("/health", tags=["System"])
+@app.get(
+    "/health",
+    tags=["System"],
+    summary="فحص حالة السيرفر",
+    description="يرجّع حالة السيرفر واسم التطبيق والبيئة. بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة.",
+)
 def health_check():
     """Endpoint بسيط يستخدمه Docker/الخوادم للتأكد إن السيرفر شغال — معيار أساسي بأي نظام إنتاجي."""
     return {"status": "ok", "app": settings.APP_NAME, "environment": settings.ENVIRONMENT}

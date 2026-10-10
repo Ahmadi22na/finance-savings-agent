@@ -1,8 +1,9 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.api.docs import UNAUTHORIZED, bad_request, conflict, not_found, responses
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
@@ -23,7 +24,7 @@ from app.services import (
 )
 from app.agent.providers.factory import get_ai_provider
 
-router = APIRouter(prefix="/transactions", tags=["Transactions"])
+router = APIRouter(prefix="/transactions", tags=["Transactions"], responses=UNAUTHORIZED)
 
 MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024  # 10 ميغا — كافي جدًا لصورة فاتورة بجودة عادية
 
@@ -34,7 +35,18 @@ def _to_transaction_out(db: Session, transaction) -> TransactionOut:
     return result
 
 
-@router.post("/quick-log", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/quick-log",
+    response_model=TransactionOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="تسجيل سريع لمعاملة",
+    description=(
+        "المسار الأهم بالتطبيق، ويدعم مسارين: (1) الأيقونات: إرسال `category_id` يحفظ فورًا "
+        "بدون أي معالجة ذكية. (2) النص الذكي: إرسال `note` بدون `category_id` يجعل محرك "
+        "التصنيف يخمّن التصنيف تلقائيًا، ويرجع `ai_suggested=true` مع "
+        "`suggestion_confidence`. يجب إرسال `category_id` أو `note` على الأقل."
+    ),
+)
 def quick_log_transaction(
     data: TransactionQuickLogCreate,
     db: Session = Depends(get_db),
@@ -54,9 +66,17 @@ def quick_log_transaction(
     return result
 
 
-@router.get("", response_model=list[TransactionOut])
+@router.get(
+    "",
+    response_model=list[TransactionOut],
+    summary="قائمة المعاملات",
+    description=(
+        "يرجّع آخر معاملات المستخدم (الأحدث أولًا). لمعاملات الدخل، `unallocated_amount` هو "
+        "المبلغ الذي لم يُوزَّع بعد على أهداف."
+    ),
+)
 def list_transactions(
-    limit: int = 50,
+    limit: int = Query(50, description="عدد المعاملات المطلوب إرجاعها (الافتراضي 50)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -71,9 +91,20 @@ def list_transactions(
     return results
 
 
-@router.post("/scan-receipt", response_model=ReceiptScanResult)
+@router.post(
+    "/scan-receipt",
+    response_model=ReceiptScanResult,
+    summary="قراءة فاتورة من صورة (OCR)",
+    description=(
+        "يستقبل صورة فاتورة (multipart، الحقل `file`، بصيغة JPEG أو PNG أو WEBP وبحد أقصى 10 "
+        "ميغابايت) فيقرأها Gemini Vision ويرجّع **مسودة** فقط: مبلغ وتصنيف مقترح وملاحظة. لا "
+        "يحفظ أي شيء؛ يراجع المستخدم المسودة ثم يحفظها عبر `POST /transactions/quick-log`. "
+        "القيمة `readable=false` تعني أن الصورة غير واضحة أو ليست فاتورة."
+    ),
+    responses=bad_request("صيغة الصورة غير مدعومة، أو حجمها أكبر من 10 ميغابايت، أو الصورة فارغة."),
+)
 async def scan_receipt(
-    file: UploadFile = File(...),
+    file: UploadFile = File(..., description="صورة الفاتورة (JPEG أو PNG أو WEBP، حتى 10 ميغابايت)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -102,7 +133,16 @@ async def scan_receipt(
     return receipt_service.scan_receipt(db, current_user, provider, image_bytes, file.content_type)
 
 
-@router.post("/parse-sms", response_model=SmsParseResult)
+@router.post(
+    "/parse-sms",
+    response_model=SmsParseResult,
+    summary="تحليل رسالة بنكية ملصوقة",
+    description=(
+        "يحلّل نص رسالة بنكية (نسخ ولصق يدوي، بدون أي صلاحية قراءة رسائل) ويرجّع **مسودة** "
+        "(مبلغ، نوع، ملاحظة). لا يحفظ شيئًا. القيمة `parsed=false` تعني أن النص لا يطابق أي "
+        "نمط مدعوم."
+    ),
+)
 def parse_sms(
     data: SmsParseRequest,
     current_user: User = Depends(get_current_user),
@@ -118,7 +158,16 @@ def parse_sms(
     return SmsParseResult(amount=parsed.amount, type=parsed.type, note=parsed.note, parsed=True)
 
 
-@router.post("/sms-import/preview", response_model=SmsImportPreviewResponse)
+@router.post(
+    "/sms-import/preview",
+    response_model=SmsImportPreviewResponse,
+    summary="معاينة استيراد رسائل بنكية",
+    description=(
+        "يحلّل رسائل قُرئت من صندوق الوارد على الجهاز (بعد فلترة محلية، حتى 300 رسالة) ويرجّع "
+        "المعاملات المكتشفة مع علامة `already_imported` للرسائل المستوردة سابقًا. لا يحفظ "
+        "شيئًا."
+    ),
+)
 def preview_sms_import(
     data: SmsImportPreviewRequest,
     db: Session = Depends(get_db),
@@ -132,7 +181,17 @@ def preview_sms_import(
     return SmsImportPreviewResponse(candidates=candidates)
 
 
-@router.post("/sms-import/confirm", response_model=list[TransactionOut], status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/sms-import/confirm",
+    response_model=list[TransactionOut],
+    status_code=status.HTTP_201_CREATED,
+    summary="تأكيد استيراد الرسائل",
+    description=(
+        "ينشئ معاملات فعلية من الرسائل التي اختارها المستخدم. السيرفر يعيد تحليل نص كل رسالة "
+        "بنفسه ولا يثق بأي مبلغ قادم من الموبايل، ويتجاهل الرسائل المستوردة مسبقًا."
+    ),
+    responses=conflict("بعض الرسائل استُوردت للتو بطلب آخر؛ حدّث القائمة وأعد المحاولة."),
+)
 def confirm_sms_import(
     data: SmsImportConfirmRequest,
     db: Session = Depends(get_db),
@@ -147,7 +206,20 @@ def confirm_sms_import(
     return [_to_transaction_out(db, t) for t in created]
 
 
-@router.post("/{transaction_id}/allocate", response_model=IncomeAllocationResult)
+@router.post(
+    "/{transaction_id}/allocate",
+    response_model=IncomeAllocationResult,
+    summary="توزيع دخل على الأهداف",
+    description=(
+        "يوزّع معاملة دخل واحدة على هدف أو أكثر بقرار صريح من المستخدم (لا يوجد توجيه "
+        "تلقائي). يقبل توزيعًا جزئيًا؛ يبقى الباقي في `unallocated_amount` حتى يوزّعه "
+        "المستخدم لاحقًا. يرجّع المعاملة بعد التحديث والأهداف التي تغيّرت."
+    ),
+    responses=responses(
+        bad_request("المعاملة ليست دخلًا، أو هدف مكرر/غير موجود/غير نشط، أو المبلغ أكبر من المتاح."),
+        not_found("المعاملة غير موجودة."),
+    ),
+)
 def allocate_income(
     transaction_id: uuid.UUID,
     data: IncomeAllocationRequest,

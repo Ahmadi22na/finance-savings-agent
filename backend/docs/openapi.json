@@ -1,0 +1,2885 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Rasheed - Finance Savings Agent",
+    "description": "**رشيد** تطبيق لإدارة المصاريف والتوفير، مبني حول وكيل ذكاء اصطناعي (رشيد) بثلاث شخصيات.\nهذا الـ Backend بيخدّم تطبيق الموبايل (Flutter).\n\n## البدء السريع (من هذه الصفحة)\n\n1. نفّذ `POST /auth/register` (أو `POST /auth/login` إذا عندك حساب).\n2. انسخ قيمة `access_token` من الرد.\n3. اضغط زر **Authorize** أعلى الصفحة وألصق التوكن (بدون كلمة Bearer).\n4. جرّب أي Endpoint محمي (القفل 🔒 بجانبه).\n\n## مبادئ عامة\n\n- **المصادقة:** JWT من نوع Bearer عبر الهيدر `Authorization: Bearer <access_token>`.\n  كل الـ Endpoints محمية ما عدا `/auth/*` و`/personas` و`/health`.\n- **العملة:** كل المبالغ بالدينار الأردني (JOD).\n- **المسودات لا تحفظ شيئًا:** `/transactions/scan-receipt` و`/transactions/parse-sms`\n  و`/transactions/sms-import/preview` تقرأ وتحلّل فقط. الحفظ الفعلي دايمًا بطلب منفصل\n  يقرّره المستخدم بعد مراجعة المسودة.\n- **رشيد لا يعدّل بياناتك بدون موافقة:** أي تغيير مالي يقترحه رشيد (تصحيح تصنيف، دفعة لهدف،\n  هدف جديد، تسجيل دخل) يُنشأ كاقتراح بحالة `pending`، ولا يُنفَّذ إلا عند\n  `POST /agent/actions/{id}/confirm` بطلب صريح من المستخدم.\n- **ازدحام Gemini:** عند ازدحام خدمة الذكاء الاصطناعي، `/agent/chat` يرجّع `200` مع رسالة اعتذار\n  نصية داخل `reply` بدل خطأ HTTP.\n\n## صيغة الأخطاء\n\nأخطاء المنطق ترجع بالشكل `{\"detail\": \"رسالة بالعربي\"}` مع كود HTTP مناسب\n(400 طلب غير صالح، 401 غير مصادَق، 404 غير موجود، 409 تعارض).\nأخطاء التحقق من المدخلات (Validation) ترجع `422` بالصيغة القياسية لـ FastAPI.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "إنشاء حساب جديد",
+        "description": "ينشئ حسابًا جديدًا ويرجّع زوج التوكنات (`access_token` و`refresh_token`) مع بيانات المستخدم. رقم الهاتف فريد، وكلمة المرور 8 أحرف على الأقل.",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegister"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "رقم الهاتف مسجّل مسبقًا.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "تسجيل الدخول",
+        "description": "يتحقق من رقم الهاتف وكلمة المرور ويرجّع زوج التوكنات مع بيانات المستخدم.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPair"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "رقم الهاتف أو كلمة المرور غير صحيحة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "بيانات المستخدم الحالي",
+        "description": "يرجّع ملف المستخدم صاحب التوكن، بما فيه الشخصية المختارة وحالة إتمام الـ Onboarding. يستخدمه التطبيق عند الإقلاع للتحقق من صلاحية التوكن وتوجيه المستخدم للشاشة المناسبة.",
+        "operationId": "get_me_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "قائمة التصنيفات",
+        "description": "يرجّع التصنيفات الافتراضية بالإضافة للتصنيفات الخاصة بالمستخدم. `category_type` يحدد إذا كان التصنيف للمصروف أو الدخل أو كليهما (`both`).",
+        "operationId": "list_categories_api_v1_categories_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Categories Api V1 Categories Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "summary": "إنشاء تصنيف خاص",
+        "description": "ينشئ تصنيفًا خاصًا بالمستخدم بالإضافة للتصنيفات الافتراضية.",
+        "operationId": "create_category_api_v1_categories_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions/quick-log": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "تسجيل سريع لمعاملة",
+        "description": "المسار الأهم بالتطبيق، ويدعم مسارين: (1) الأيقونات: إرسال `category_id` يحفظ فورًا بدون أي معالجة ذكية. (2) النص الذكي: إرسال `note` بدون `category_id` يجعل محرك التصنيف يخمّن التصنيف تلقائيًا، ويرجع `ai_suggested=true` مع `suggestion_confidence`. يجب إرسال `category_id` أو `note` على الأقل.",
+        "operationId": "quick_log_transaction_api_v1_transactions_quick_log_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransactionQuickLogCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "قائمة المعاملات",
+        "description": "يرجّع آخر معاملات المستخدم (الأحدث أولًا). لمعاملات الدخل، `unallocated_amount` هو المبلغ الذي لم يُوزَّع بعد على أهداف.",
+        "operationId": "list_transactions_api_v1_transactions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "عدد المعاملات المطلوب إرجاعها (الافتراضي 50)",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "عدد المعاملات المطلوب إرجاعها (الافتراضي 50)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionOut"
+                  },
+                  "title": "Response List Transactions Api V1 Transactions Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transactions/scan-receipt": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "قراءة فاتورة من صورة (OCR)",
+        "description": "يستقبل صورة فاتورة (multipart، الحقل `file`، بصيغة JPEG أو PNG أو WEBP وبحد أقصى 10 ميغابايت) فيقرأها Gemini Vision ويرجّع **مسودة** فقط: مبلغ وتصنيف مقترح وملاحظة. لا يحفظ أي شيء؛ يراجع المستخدم المسودة ثم يحفظها عبر `POST /transactions/quick-log`. القيمة `readable=false` تعني أن الصورة غير واضحة أو ليست فاتورة.",
+        "operationId": "scan_receipt_api_v1_transactions_scan_receipt_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_scan_receipt_api_v1_transactions_scan_receipt_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceiptScanResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "صيغة الصورة غير مدعومة، أو حجمها أكبر من 10 ميغابايت، أو الصورة فارغة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions/parse-sms": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "تحليل رسالة بنكية ملصوقة",
+        "description": "يحلّل نص رسالة بنكية (نسخ ولصق يدوي، بدون أي صلاحية قراءة رسائل) ويرجّع **مسودة** (مبلغ، نوع، ملاحظة). لا يحفظ شيئًا. القيمة `parsed=false` تعني أن النص لا يطابق أي نمط مدعوم.",
+        "operationId": "parse_sms_api_v1_transactions_parse_sms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsParseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmsParseResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions/sms-import/preview": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "معاينة استيراد رسائل بنكية",
+        "description": "يحلّل رسائل قُرئت من صندوق الوارد على الجهاز (بعد فلترة محلية، حتى 300 رسالة) ويرجّع المعاملات المكتشفة مع علامة `already_imported` للرسائل المستوردة سابقًا. لا يحفظ شيئًا.",
+        "operationId": "preview_sms_import_api_v1_transactions_sms_import_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsImportPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SmsImportPreviewResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions/sms-import/confirm": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "تأكيد استيراد الرسائل",
+        "description": "ينشئ معاملات فعلية من الرسائل التي اختارها المستخدم. السيرفر يعيد تحليل نص كل رسالة بنفسه ولا يثق بأي مبلغ قادم من الموبايل، ويتجاهل الرسائل المستوردة مسبقًا.",
+        "operationId": "confirm_sms_import_api_v1_transactions_sms_import_confirm_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SmsImportConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TransactionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Confirm Sms Import Api V1 Transactions Sms Import Confirm Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "بعض الرسائل استُوردت للتو بطلب آخر؛ حدّث القائمة وأعد المحاولة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/transactions/{transaction_id}/allocate": {
+      "post": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "توزيع دخل على الأهداف",
+        "description": "يوزّع معاملة دخل واحدة على هدف أو أكثر بقرار صريح من المستخدم (لا يوجد توجيه تلقائي). يقبل توزيعًا جزئيًا؛ يبقى الباقي في `unallocated_amount` حتى يوزّعه المستخدم لاحقًا. يرجّع المعاملة بعد التحديث والأهداف التي تغيّرت.",
+        "operationId": "allocate_income_api_v1_transactions__transaction_id__allocate_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IncomeAllocationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncomeAllocationResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "المعاملة ليست دخلًا، أو هدف مكرر/غير موجود/غير نشط، أو المبلغ أكبر من المتاح.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "المعاملة غير موجودة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals": {
+      "get": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "قائمة الأهداف",
+        "description": "يرجّع كل أهداف المستخدم مرتبة حسب الحالة ثم الأولوية. يُطبَّق عند القراءة التصفير الشهري للأهداف المتكررة. `progress_percentage` محسوبة من `current_amount` و`target_amount`.",
+        "operationId": "list_goals_api_v1_goals_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoalOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Goals Api V1 Goals Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "إنشاء هدف",
+        "description": "ينشئ هدفًا جديدًا بأولوية في آخر الترتيب. إذا كان `is_recurring=true` يصبح «مصروفًا شهريًا ثابتًا»: يُصفَّر تلقائيًا في بداية كل شهر بعد أن يكتمل في الشهر السابق.",
+        "operationId": "create_goal_api_v1_goals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/goals/reorder": {
+      "put": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "إعادة ترتيب الأولويات",
+        "description": "يحدّد الترتيب الجديد لكل الأهداف النشطة (من الأعلى أولوية للأقل). يجب إرسال معرّفات كل الأهداف النشطة الحالية بالضبط، لا أكثر ولا أقل، لتفادي ترتيب جزئي.",
+        "operationId": "reorder_goals_api_v1_goals_reorder_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalReorderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoalOut"
+                  },
+                  "type": "array",
+                  "title": "Response Reorder Goals Api V1 Goals Reorder Put"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "القائمة المرسلة لا تطابق مجموعة الأهداف النشطة الحالية.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/goals/{goal_id}/contribute": {
+      "post": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "إضافة مبلغ لتقدّم هدف",
+        "description": "يزيد `current_amount` للهدف بالمبلغ المرسل، ويحوّل حالته إلى `achieved` عند الوصول للمبلغ المستهدف. للأهداف النشطة فقط.",
+        "operationId": "contribute_to_goal_api_v1_goals__goal_id__contribute_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoalContribution"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "الهدف غير نشط (منجز أو متروك).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الهدف غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/goals/{goal_id}": {
+      "delete": {
+        "tags": [
+          "Goals"
+        ],
+        "summary": "حذف هدف",
+        "description": "يحذف الهدف نهائيًا. لا يرجّع محتوى (204).",
+        "operationId": "delete_goal_api_v1_goals__goal_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "goal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Goal Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الهدف غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/personas": {
+      "get": {
+        "tags": [
+          "Personas"
+        ],
+        "summary": "قائمة شخصيات رشيد",
+        "description": "يرجّع الشخصيات المفعّلة (`wise` و`business` و`energetic`) لشاشة الاختيار أثناء الـ Onboarding. بدون مصادقة لأن الشاشة تظهر قبل اكتمال إعداد الحساب. لا يرجّع تعليمات النظام الداخلية (system prompt).",
+        "operationId": "list_personas_api_v1_personas_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonaOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Personas Api V1 Personas Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/onboarding/complete": {
+      "post": {
+        "tags": [
+          "Onboarding"
+        ],
+        "summary": "إتمام الـ Onboarding",
+        "description": "يستقبل مخرجات شاشات الإعداد بطلب واحد: نوع الدخل، الشخصية المختارة، وأول هدف مالي. يحفظ الشخصية وينشئ الهدف ويعلّم الحساب بأنه أكمل الإعداد. يُنفَّذ مرة واحدة فقط لكل حساب.",
+        "operationId": "complete_onboarding_api_v1_onboarding_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardingComplete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "المستخدم أكمل الـ Onboarding سابقًا.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الشخصية المختارة غير موجودة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/chat": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "محادثة مع رشيد",
+        "description": "يرسل رسالة المستخدم لرشيد ويرجّع رده بشخصيته المختارة، مع آخر 20 رسالة كسياق للمحادثة. قد يولّد رشيد أثناء الرد اقتراحات معلّقة (هدف جديد، تسجيل دخل...) تظهر لاحقًا في `GET /agent/actions` ولا تُنفَّذ إلا بتأكيد صريح. عند ازدحام خدمة الذكاء الاصطناعي يرجع الرد 200 مع رسالة اعتذار نصية داخل `reply`.",
+        "operationId": "chat_with_agent_api_v1_agent_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatMessageCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "المستخدم لم يُكمل الـ Onboarding ولم يختر شخصية لرشيد بعد.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/nudge": {
+      "get": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "رسالة مبادِرة من رشيد (Nudge)",
+        "description": "يستدعيه الموبايل عند فتح التطبيق أو شاشة المحادثة. يرجّع `nudge: null` عندما لا داعي لرسالة (رد طبيعي وليس خطأ). تُولَّد الرسالة فقط عندما يكون مزاج رشيد «متحمسًا» أو «قلقًا» (حسب مصاريف المستخدم وتقدّم هدفه)، وبفاصل 12 ساعة على الأقل بين رسالتين.",
+        "operationId": "get_nudge_api_v1_agent_nudge_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NudgeOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/actions": {
+      "get": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "الاقتراحات المعلّقة",
+        "description": "يرجّع اقتراحات رشيد التي لم يرد عليها المستخدم بعد (`pending`)، ويعرضها الموبايل كبطاقات موافقة/رفض. محتوى `payload` يختلف حسب `action_type`.",
+        "operationId": "list_pending_actions_api_v1_agent_actions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentActionOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Pending Actions Api V1 Agent Actions Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/actions/check": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "توليد اقتراحات جديدة",
+        "description": "يفحص وضع المستخدم ويولّد اقتراحات جديدة عند الحاجة: تصحيح تصنيف معاملات غير مصنّفة (بمساعدة Gemini)، أو دفعة لهدف قريب من الاكتمال. القائمة الفارغة رد طبيعي وليست خطأ. لا يُنفَّذ أي تعديل هنا؛ الاقتراحات فقط.",
+        "operationId": "check_for_new_actions_api_v1_agent_actions_check_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AgentActionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Check For New Actions Api V1 Agent Actions Check Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/agent/actions/{action_id}/confirm": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "تأكيد اقتراح وتنفيذه",
+        "description": "ينفّذ الاقتراح فعليًا على بيانات المستخدم بحسب `action_type` (تصحيح تصنيف، دفعة لهدف، إنشاء هدف، أو تسجيل دخل) ويحوّل حالته إلى `applied`. هذا هو المسار الوحيد الذي يعدّل فيه رشيد البيانات المالية، ولا يعمل إلا بطلب صريح من المستخدم.",
+        "operationId": "confirm_action_api_v1_agent_actions__action_id__confirm_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Action Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "الاقتراح تم الرد عليه سابقًا، أو نوعه غير مدعوم، أو بياناته تالفة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الاقتراح غير موجود، أو العنصر المرتبط به (معاملة أو هدف) غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/actions/{action_id}/reject": {
+      "post": {
+        "tags": [
+          "Agent"
+        ],
+        "summary": "رفض اقتراح",
+        "description": "يحوّل حالة الاقتراح إلى `rejected` دون أي تعديل على بيانات المستخدم.",
+        "operationId": "reject_action_api_v1_agent_actions__action_id__reject_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Action Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentActionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "الاقتراح تم الرد عليه سابقًا.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الاقتراح غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "فحص حالة السيرفر",
+        "description": "يرجّع حالة السيرفر واسم التطبيق والبيئة. بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AgentActionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "action_type": {
+            "$ref": "#/components/schemas/AgentActionType"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AgentActionStatus"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Payload",
+            "description": "تفاصيل الاقتراح، وشكلها يعتمد على `action_type`: `suggest_category_correction` → {transaction_id, new_category_id, new_category_name, transaction_note, transaction_amount}؛ `suggest_goal_contribution` → {goal_id, goal_title, amount}؛ `suggest_goal_creation` → {title, target_amount, breakdown, is_recurring}؛ `suggest_income_log` → {amount, note}."
+          },
+          "reasoning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning",
+            "description": "سبب الاقتراح بصياغة رشيد (يعرضها التطبيق للمستخدم)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action_type",
+          "status",
+          "payload",
+          "reasoning"
+        ],
+        "title": "AgentActionOut",
+        "examples": [
+          {
+            "action_type": "suggest_goal_contribution",
+            "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "payload": {
+              "amount": 18,
+              "goal_id": "9c1d2e4a-7b3f-4d58-a1c6-0e5f8b2d7a91",
+              "goal_title": "لابتوب جديد"
+            },
+            "reasoning": "إنت قريب من هدف 'لابتوب جديد' (85%)! دفعة بسيطة بتقرّبك أكتر.",
+            "status": "pending"
+          }
+        ]
+      },
+      "AgentActionStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "applied",
+          "rejected"
+        ],
+        "title": "AgentActionStatus"
+      },
+      "AgentActionType": {
+        "type": "string",
+        "enum": [
+          "suggest_category_correction",
+          "suggest_budget_adjustment",
+          "suggest_goal_contribution",
+          "suggest_goal_creation",
+          "suggest_income_log"
+        ],
+        "title": "AgentActionType"
+      },
+      "Body_scan_receipt_api_v1_transactions_scan_receipt_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "صورة الفاتورة (JPEG أو PNG أو WEBP، حتى 10 ميغابايت)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_scan_receipt_api_v1_transactions_scan_receipt_post"
+      },
+      "CategoryCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "اسم التصنيف"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "description": "مفتاح أيقونة يفسّره تطبيق الموبايل",
+            "default": "tag"
+          },
+          "category_type": {
+            "$ref": "#/components/schemas/CategoryType",
+            "description": "`expense` أو `income` أو `both`",
+            "default": "expense"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CategoryCreate",
+        "description": "تصنيف خاص ينشئه المستخدم بنفسه (بالإضافة للتصنيفات الافتراضية).",
+        "examples": [
+          {
+            "category_type": "expense",
+            "icon": "gift",
+            "name": "هدايا"
+          }
+        ]
+      },
+      "CategoryOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "is_default": {
+            "type": "boolean",
+            "title": "Is Default",
+            "description": "true = تصنيف افتراضي من النظام، false = أنشأه المستخدم"
+          },
+          "category_type": {
+            "$ref": "#/components/schemas/CategoryType"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "icon",
+          "is_default",
+          "category_type"
+        ],
+        "title": "CategoryOut",
+        "examples": [
+          {
+            "category_type": "expense",
+            "icon": "restaurant",
+            "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "is_default": true,
+            "name": "مطاعم وكافيهات"
+          }
+        ]
+      },
+      "CategoryType": {
+        "type": "string",
+        "enum": [
+          "expense",
+          "income",
+          "both"
+        ],
+        "title": "CategoryType",
+        "description": "نوع التصنيف: بيحدد وين يظهر بواجهة التسجيل السريع.\nEXPENSE تظهر لما المستخدم يسجّل مصروف، INCOME لما يسجّل دخل،\nBOTH تظهر بالحالتين (مثال: \"تحويل بين حسابات\")."
+      },
+      "ChatMessageCreate": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Message",
+            "description": "نص رسالة المستخدم لرشيد"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatMessageCreate",
+        "examples": [
+          {
+            "message": "كم باقيلي عشان أوصل لهدفي؟"
+          }
+        ]
+      },
+      "ChatMessageOut": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "title": "Reply",
+            "description": "رد رشيد (نص عادي، بدون أي وسوم داخلية)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reply"
+        ],
+        "title": "ChatMessageOut",
+        "examples": [
+          {
+            "reply": "باقيلك 90 دينار على اللابتوب، كمل بنفس الوتيرة!"
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "description": "رسالة الخطأ (بالعربي)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
+        "description": "شكل الخطأ القياسي الراجع من كل الـ Endpoints.",
+        "examples": [
+          {
+            "detail": "الهدف غير موجود"
+          }
+        ]
+      },
+      "GoalContribution": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "المبلغ المضاف بالدينار"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "GoalContribution",
+        "description": "إضافة مبلغ لتقدم الهدف (مثلاً بعد ما المستخدم يوفر مبلغ فعليًا).",
+        "examples": [
+          {
+            "amount": 50
+          }
+        ]
+      },
+      "GoalCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 2,
+            "title": "Title",
+            "description": "عنوان الهدف"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon",
+            "description": "مفتاح أيقونة يفسّره تطبيق الموبايل (مثل laptop أو plane)",
+            "default": "target"
+          },
+          "target_amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Target Amount",
+            "description": "المبلغ المستهدف بالدينار"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline",
+            "description": "الموعد النهائي (اختياري)"
+          },
+          "is_recurring": {
+            "type": "boolean",
+            "title": "Is Recurring",
+            "description": "true = مصروف شهري ثابت يُصفَّر تلقائيًا كل شهر بعد اكتماله",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "target_amount"
+        ],
+        "title": "GoalCreate",
+        "examples": [
+          {
+            "deadline": "2027-01-05",
+            "icon": "laptop",
+            "is_recurring": false,
+            "target_amount": 600,
+            "title": "لابتوب جديد"
+          },
+          {
+            "icon": "dumbbell",
+            "is_recurring": true,
+            "target_amount": 40,
+            "title": "اشتراك النادي"
+          }
+        ]
+      },
+      "GoalOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "target_amount": {
+            "type": "number",
+            "title": "Target Amount"
+          },
+          "current_amount": {
+            "type": "number",
+            "title": "Current Amount"
+          },
+          "priority": {
+            "type": "integer",
+            "title": "Priority"
+          },
+          "is_recurring": {
+            "type": "boolean",
+            "title": "Is Recurring"
+          },
+          "deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GoalStatus"
+          },
+          "progress_percentage": {
+            "type": "number",
+            "title": "Progress Percentage",
+            "description": "نسبة التقدم المئوية (0 إلى 100)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "icon",
+          "target_amount",
+          "current_amount",
+          "priority",
+          "is_recurring",
+          "deadline",
+          "status",
+          "progress_percentage",
+          "created_at"
+        ],
+        "title": "GoalOut",
+        "examples": [
+          {
+            "created_at": "2026-08-08T10:47:45Z",
+            "current_amount": 510,
+            "deadline": "2027-01-05",
+            "icon": "laptop",
+            "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "is_recurring": false,
+            "priority": 2,
+            "progress_percentage": 85.0,
+            "status": "active",
+            "target_amount": 600,
+            "title": "لابتوب جديد"
+          }
+        ]
+      },
+      "GoalReorderRequest": {
+        "properties": {
+          "ordered_goal_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Ordered Goal Ids",
+            "description": "معرّفات الأهداف النشطة بالترتيب المطلوب (الأعلى أولوية أولًا)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ordered_goal_ids"
+        ],
+        "title": "GoalReorderRequest",
+        "description": "ترتيب جديد كامل لكل خطط المستخدم النشطة، كلستة IDs بالترتيب المطلوب.\nلازم تحتوي بالضبط نفس مجموعة الخطط النشطة الحالية — كل أو ولا شي،\nعشان نتجنب حالة نص خطط مرتبة ونص لأ.",
+        "examples": [
+          {
+            "ordered_goal_ids": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "9c1d2e4a-7b3f-4d58-a1c6-0e5f8b2d7a91"
+            ]
+          }
+        ]
+      },
+      "GoalStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "achieved",
+          "abandoned"
+        ],
+        "title": "GoalStatus"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IncomeAllocationItem": {
+        "properties": {
+          "goal_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Goal Id",
+            "description": "معرّف الهدف (نشط وتابع للمستخدم)"
+          },
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "المبلغ الموزَّع على هذا الهدف بالدينار"
+          }
+        },
+        "type": "object",
+        "required": [
+          "goal_id",
+          "amount"
+        ],
+        "title": "IncomeAllocationItem"
+      },
+      "IncomeAllocationRequest": {
+        "properties": {
+          "allocations": {
+            "items": {
+              "$ref": "#/components/schemas/IncomeAllocationItem"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Allocations",
+            "description": "هدف أو أكثر؛ مجموع المبالغ لا يتجاوز المتاح من هذا الدخل ولا يتكرر نفس الهدف"
+          }
+        },
+        "type": "object",
+        "required": [
+          "allocations"
+        ],
+        "title": "IncomeAllocationRequest",
+        "description": "توزيع دخل واحد (معاملة وحدة) على خطة أو أكتر دفعة وحدة.",
+        "examples": [
+          {
+            "allocations": [
+              {
+                "amount": 30,
+                "goal_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+              },
+              {
+                "amount": 15,
+                "goal_id": "9c1d2e4a-7b3f-4d58-a1c6-0e5f8b2d7a91"
+              }
+            ]
+          }
+        ]
+      },
+      "IncomeAllocationResult": {
+        "properties": {
+          "transaction": {
+            "$ref": "#/components/schemas/TransactionOut"
+          },
+          "updated_goals": {
+            "items": {
+              "$ref": "#/components/schemas/GoalOut"
+            },
+            "type": "array",
+            "title": "Updated Goals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transaction",
+          "updated_goals"
+        ],
+        "title": "IncomeAllocationResult"
+      },
+      "IncomeType": {
+        "type": "string",
+        "enum": [
+          "fixed",
+          "variable"
+        ],
+        "title": "IncomeType",
+        "description": "نوع الدخل: مهم جدًا لرشيد ليفهم السياق قبل ما ينبّه المستخدم.\nمستخدم دخله متغير ما لازم يُقارن بنفس معايير مستخدم دخله ثابت."
+      },
+      "NudgeOut": {
+        "properties": {
+          "nudge": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nudge",
+            "description": "رسالة رشيد المبادِرة، أو null إذا لا داعي لأي رسالة الآن"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nudge"
+        ],
+        "title": "NudgeOut",
+        "examples": [
+          {
+            "nudge": "ما شاء الله، صرت قريب من هدفك!"
+          },
+          {}
+        ]
+      },
+      "OnboardingComplete": {
+        "properties": {
+          "income_type": {
+            "$ref": "#/components/schemas/IncomeType",
+            "description": "`fixed` أو `variable`"
+          },
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id",
+            "description": "معرّف الشخصية من `GET /personas`"
+          },
+          "goal_title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 2,
+            "title": "Goal Title",
+            "description": "عنوان أول هدف"
+          },
+          "goal_target_amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Goal Target Amount",
+            "description": "المبلغ المستهدف لأول هدف (دينار)"
+          },
+          "goal_deadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal Deadline",
+            "description": "موعد نهائي اختياري"
+          }
+        },
+        "type": "object",
+        "required": [
+          "income_type",
+          "persona_id",
+          "goal_title",
+          "goal_target_amount"
+        ],
+        "title": "OnboardingComplete",
+        "description": "يستقبل كل مخرجات شاشات الـ Onboarding الأربع بطلب واحد:\nنوع الدخل، الشخصية المختارة، وأول هدف مالي.",
+        "examples": [
+          {
+            "goal_target_amount": 1000,
+            "goal_title": "صندوق الطوارئ",
+            "income_type": "variable",
+            "persona_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        ]
+      },
+      "PersonaOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "tagline": {
+            "type": "string",
+            "title": "Tagline"
+          },
+          "color_hex": {
+            "type": "string",
+            "title": "Color Hex"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "display_name",
+          "tagline",
+          "color_hex"
+        ],
+        "title": "PersonaOut",
+        "description": "ما منرجع system_prompt هون إطلاقًا — هاي تفاصيل داخلية بين رشيد وGemini،\nمو شي المفروض يشوفه المستخدم بشاشة اختيار الشخصية.",
+        "examples": [
+          {
+            "color_hex": "#F57C00",
+            "display_name": "رشيد الطاقة",
+            "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "key": "energetic",
+            "tagline": "شبابي ومرح وبيحمّسك توفّر"
+          }
+        ]
+      },
+      "ReceiptScanResult": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "readable": {
+            "type": "boolean",
+            "title": "Readable",
+            "description": "false إذا الصورة غير واضحة أو ليست فاتورة"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "category_id",
+          "category_name",
+          "note",
+          "readable"
+        ],
+        "title": "ReceiptScanResult",
+        "description": "نتيجة قراءة فاتورة — مسودة بس، ما بتنشئ Transaction. الموبايل يعبّي فيها\nشاشة التسجيل السريع مسبقًا، والمستخدم يراجعها/يعدّلها قبل ما يحفظ فعليًا.",
+        "examples": [
+          {
+            "amount": 12.5,
+            "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "category_name": "بقالة وسوبرماركت",
+            "note": "سوبرماركت",
+            "readable": true
+          }
+        ]
+      },
+      "SmsImportCandidate": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "already_imported": {
+            "type": "boolean",
+            "title": "Already Imported",
+            "description": "true إذا هذه الرسالة استُوردت سابقًا (لن تُستورد مرة ثانية)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "body",
+          "received_at",
+          "amount",
+          "type",
+          "note",
+          "already_imported"
+        ],
+        "title": "SmsImportCandidate"
+      },
+      "SmsImportConfirmRequest": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SmsMessageIn"
+            },
+            "type": "array",
+            "maxItems": 300,
+            "minItems": 1,
+            "title": "Messages",
+            "description": "الرسائل التي اختارها المستخدم من نتيجة المعاينة"
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "title": "SmsImportConfirmRequest",
+        "examples": [
+          {
+            "messages": [
+              {
+                "body": "Successfully received 4.500 JOD from 0791234567 Current balance JOD5,000.000 JOD.",
+                "received_at": "2026-10-06T14:41:00Z"
+              }
+            ]
+          }
+        ]
+      },
+      "SmsImportPreviewRequest": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/SmsMessageIn"
+            },
+            "type": "array",
+            "maxItems": 300,
+            "minItems": 1,
+            "title": "Messages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages"
+        ],
+        "title": "SmsImportPreviewRequest",
+        "examples": [
+          {
+            "messages": [
+              {
+                "body": "Successfully received 4.500 JOD from 0791234567 Current balance JOD5,000.000 JOD.",
+                "received_at": "2026-10-06T14:41:00Z"
+              }
+            ]
+          }
+        ]
+      },
+      "SmsImportPreviewResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/SmsImportCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "SmsImportPreviewResponse"
+      },
+      "SmsMessageIn": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Body",
+            "description": "نص الرسالة"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At",
+            "description": "وقت وصول الرسالة على الجهاز"
+          }
+        },
+        "type": "object",
+        "required": [
+          "body",
+          "received_at"
+        ],
+        "title": "SmsMessageIn",
+        "examples": [
+          {
+            "body": "Successfully received 4.500 JOD from 0791234567 Current balance JOD5,000.000 JOD.",
+            "received_at": "2026-10-06T14:41:00Z"
+          }
+        ]
+      },
+      "SmsParseRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Text",
+            "description": "نص الرسالة البنكية كما وصلت (CliQ)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "SmsParseRequest",
+        "examples": [
+          {
+            "text": "Successfully received 4.500 JOD from 0791234567 Current balance JOD5,000.000 JOD."
+          }
+        ]
+      },
+      "SmsParseResult": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TransactionType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "parsed": {
+            "type": "boolean",
+            "title": "Parsed",
+            "description": "false إذا النص لا يطابق أي نمط رسالة بنكية مدعوم"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "type",
+          "note",
+          "parsed"
+        ],
+        "title": "SmsParseResult",
+        "description": "نتيجة تحليل رسالة بنكية — مسودة بس، نفس فلسفة ReceiptScanResult تمامًا:\nما بتنشئ أي Transaction، الموبايل يعبّي فيها شاشة التسجيل السريع\nوالمستخدم يراجعها ويحفظها بنفسه.",
+        "examples": [
+          {
+            "amount": 4.5,
+            "note": "تحويل CliQ من 0791234567",
+            "parsed": true,
+            "type": "income"
+          }
+        ]
+      },
+      "TokenPair": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token",
+            "description": "يُرسل بالهيدر: Authorization: Bearer <access_token>"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user"
+        ],
+        "title": "TokenPair"
+      },
+      "TransactionOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType"
+          },
+          "source": {
+            "$ref": "#/components/schemas/TransactionSource",
+            "description": "مصدر المعاملة: `manual` أو `ocr` أو `sms` (و`open_banking` محجوز للمستقبل)"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Occurred At"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoryOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "التصنيف، أو null إذا المعاملة غير مصنّفة"
+          },
+          "ai_suggested": {
+            "type": "boolean",
+            "title": "Ai Suggested",
+            "default": false
+          },
+          "suggestion_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion Confidence"
+          },
+          "unallocated_amount": {
+            "type": "number",
+            "title": "Unallocated Amount",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "type",
+          "source",
+          "note",
+          "occurred_at",
+          "category"
+        ],
+        "title": "TransactionOut",
+        "examples": [
+          {
+            "ai_suggested": false,
+            "amount": 45,
+            "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "note": "أجرة يوم",
+            "occurred_at": "2026-10-06T14:41:00Z",
+            "source": "manual",
+            "type": "income",
+            "unallocated_amount": 45
+          }
+        ]
+      },
+      "TransactionQuickLogCreate": {
+        "properties": {
+          "amount": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Amount",
+            "description": "المبلغ بالدينار، لازم يكون أكبر من صفر"
+          },
+          "type": {
+            "$ref": "#/components/schemas/TransactionType",
+            "description": "`income` دخل أو `expense` مصروف"
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id",
+            "description": "معرّف تصنيف من `GET /categories` (مسار الأيقونات)"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "ملاحظة نصية؛ بدون `category_id` تُستخدم لتخمين التصنيف تلقائيًا"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At",
+            "description": "وقت المعاملة؛ لو ما تحدد، بنعتبره الآن"
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount",
+          "type"
+        ],
+        "title": "TransactionQuickLogCreate",
+        "description": "يدعم المسارين سوا:\n- مسار الأيقونات: يوصل category_id مباشرة → حفظ فوري بدون أي معالجة ذكاء اصطناعي\n- مسار النص الذكي: يوصل note بدون category_id → محرك التصنيف (Rule-based اليوم، Gemini لاحقًا)\n  بيحاول يخمّن التصنيف تلقائيًا",
+        "examples": [
+          {
+            "amount": 4.5,
+            "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "type": "expense"
+          },
+          {
+            "amount": 12,
+            "note": "غدا مع الشباب",
+            "type": "expense"
+          }
+        ]
+      },
+      "TransactionSource": {
+        "type": "string",
+        "enum": [
+          "manual",
+          "ocr",
+          "sms",
+          "open_banking"
+        ],
+        "title": "TransactionSource",
+        "description": "مصدر المعاملة — هذا الحقل هو قلب معمارية الـ Plugin.\nكل Plugin (Manual/OCR/SMS/لاحقًا OpenBanking) بيحدد قيمته هون،\nورشيد والـ Analytics بيقدروا يميزوا مصدر كل بيانة بدون تعديل بالبنية."
+      },
+      "TransactionType": {
+        "type": "string",
+        "enum": [
+          "income",
+          "expense"
+        ],
+        "title": "TransactionType"
+      },
+      "UserLogin": {
+        "properties": {
+          "phone": {
+            "type": "string",
+            "title": "Phone",
+            "description": "رقم الهاتف المسجَّل"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "description": "كلمة المرور"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phone",
+          "password"
+        ],
+        "title": "UserLogin",
+        "examples": [
+          {
+            "password": "Passw0rd!",
+            "phone": "0791234567"
+          }
+        ]
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "phone": {
+            "type": "string",
+            "title": "Phone"
+          },
+          "income_type": {
+            "$ref": "#/components/schemas/IncomeType"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name"
+          },
+          "has_completed_onboarding": {
+            "type": "boolean",
+            "title": "Has Completed Onboarding"
+          },
+          "persona": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PersonaOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "الشخصية المختارة (null قبل إتمام الـ Onboarding)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "phone",
+          "income_type",
+          "agent_name",
+          "has_completed_onboarding"
+        ],
+        "title": "UserOut",
+        "examples": [
+          {
+            "agent_name": "رشيد",
+            "has_completed_onboarding": true,
+            "id": "9c1d2e4a-7b3f-4d58-a1c6-0e5f8b2d7a91",
+            "income_type": "variable",
+            "name": "سامر",
+            "persona": {
+              "color_hex": "#F57C00",
+              "display_name": "رشيد الطاقة",
+              "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+              "key": "energetic",
+              "tagline": "شبابي ومرح وبيحمّسك توفّر"
+            },
+            "phone": "0791234567"
+          }
+        ]
+      },
+      "UserRegister": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name",
+            "description": "الاسم الظاهر للمستخدم"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Phone",
+            "description": "رقم الهاتف — فريد لكل حساب"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "title": "Password",
+            "description": "8 أحرف على الأقل"
+          },
+          "income_type": {
+            "$ref": "#/components/schemas/IncomeType",
+            "description": "`fixed` دخل ثابت (راتب)، أو `variable` دخل غير منتظم (فريلانس/أجرة يومية)",
+            "default": "variable"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "phone",
+          "password"
+        ],
+        "title": "UserRegister",
+        "examples": [
+          {
+            "income_type": "variable",
+            "name": "سامر",
+            "password": "Passw0rd!",
+            "phone": "0791234567"
+          }
+        ]
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "فحوصات حالة السيرفر."
+    },
+    {
+      "name": "Auth",
+      "description": "إنشاء الحساب وتسجيل الدخول (ترجع توكنات JWT)."
+    },
+    {
+      "name": "Users",
+      "description": "بيانات المستخدم الحالي."
+    },
+    {
+      "name": "Onboarding",
+      "description": "إعداد الحساب لأول مرة: نوع الدخل، شخصية رشيد، وأول هدف."
+    },
+    {
+      "name": "Personas",
+      "description": "شخصيات رشيد المتاحة للاختيار (عامة، بدون مصادقة)."
+    },
+    {
+      "name": "Categories",
+      "description": "تصنيفات المعاملات (الافتراضية + الخاصة بالمستخدم)."
+    },
+    {
+      "name": "Goals",
+      "description": "الأهداف المالية (الخطط). تدعم الأولويات، والأهداف الشهرية المتكررة (مصاريف ثابتة تُصفَّر تلقائيًا كل شهر بعد اكتمالها)."
+    },
+    {
+      "name": "Transactions",
+      "description": "تسجيل الدخل والمصروف: يدويًا (أيقونات أو نص ذكي)، من صورة فاتورة (OCR)، أو من الرسائل البنكية، مع توزيع الدخل على الأهداف."
+    },
+    {
+      "name": "Agent",
+      "description": "رشيد: المحادثة، الرسائل المبادِرة (Nudges)، والاقتراحات التي تحتاج موافقة المستخدم."
+    }
+  ]
+}
