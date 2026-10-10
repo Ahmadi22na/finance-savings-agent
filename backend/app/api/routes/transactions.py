@@ -3,7 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
-from app.api.docs import UNAUTHORIZED, bad_request, conflict, not_found, responses
+from app.api.docs import (
+    UNAUTHORIZED, bad_request, conflict, not_found, responses, service_unavailable, too_many_requests,
+)
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
@@ -101,7 +103,11 @@ def list_transactions(
         "يحفظ أي شيء؛ يراجع المستخدم المسودة ثم يحفظها عبر `POST /transactions/quick-log`. "
         "القيمة `readable=false` تعني أن الصورة غير واضحة أو ليست فاتورة."
     ),
-    responses=bad_request("صيغة الصورة غير مدعومة، أو حجمها أكبر من 10 ميغابايت، أو الصورة فارغة."),
+    responses=responses(
+        bad_request("صيغة الصورة غير مدعومة، أو حجمها أكبر من 10 ميغابايت، أو الصورة فارغة."),
+        too_many_requests("تجاوز المستخدم الحد اليومي لقراءة الفواتير."),
+        service_unavailable("بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي."),
+    ),
 )
 async def scan_receipt(
     file: UploadFile = File(..., description="صورة الفاتورة (JPEG أو PNG أو WEBP، حتى 10 ميغابايت)"),

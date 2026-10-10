@@ -4,6 +4,8 @@
 ولا تُكتب مباشرة داخل الكود — هذا معيار أساسي لأي تطبيق جاهز للإنتاج والشراكة.
 """
 from functools import lru_cache
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -43,6 +45,21 @@ class Settings(BaseSettings):
     # اتركه فاضي لتعطيل الميزة. لازم يكون اسم موديل مدعوم فعلاً على حسابك (شوفه من AI Studio).
     AGENT_FALLBACK_MODEL: str = ""
     AGENT_DEFAULT_NAME: str = "رشيد"
+
+    # مزوّد الذكاء الاصطناعي: gemini (الحقيقي) أو demo (ردود جاهزة بدون إنترنت لعرض المشروع). أي قيمة غيرهم = خطأ عند الإقلاع.
+    AI_PROVIDER: Literal["gemini", "demo"] = "gemini"
+    # أقصى طول لرد Gemini بالـ tokens (يحدّ التكلفة). 0 = بدون حد. تنبيه: بعض الموديلات بتحسب "التفكير" ضمنها.
+    AI_MAX_OUTPUT_TOKENS: int = 2048
+
+    # --- حدود استهلاك الذكاء الاصطناعي (نافذة متحركة 24 ساعة). القيمة 0 = بدون حد ---
+    AI_DAILY_LIMIT_CHAT: int = 60               # رسائل المحادثة لكل مستخدم
+    AI_DAILY_LIMIT_RECEIPT_SCAN: int = 15       # قراءة الفواتير (OCR) لكل مستخدم
+    AI_DAILY_LIMIT_SUGGESTION: int = 30         # توليد اقتراحات التصنيف لكل مستخدم
+    AI_DAILY_LIMIT_CATEGORIZE: int = 100        # التصنيف الذكي بالتسجيل السريع (بعدها بيرجع للتصنيف بالكلمات)
+    AI_DAILY_LIMIT_NUDGE: int = 4               # الرسائل المبادِرة
+    AI_DAILY_LIMIT_PER_USER_TOTAL: int = 200    # إجمالي كل الأنواع لكل مستخدم
+    AI_GLOBAL_DAILY_LIMIT: int = 5000           # إجمالي كل المستخدمين (قاطع ميزانية)
+    AI_ALERT_THRESHOLD_PERCENT: int = 80        # تنبيه (WARNING بالـ logs) عند هالنسبة من أي حد. 0 = بدون تنبيه قبل الحد
 
     # --- CORS ---
     ALLOWED_ORIGINS: list[str] = ["*"]  # يُضيَّق في الإنتاج لدومين التطبيق فقط

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Rasheed - Finance Savings Agent",
-    "description": "**رشيد** تطبيق لإدارة المصاريف والتوفير، مبني حول وكيل ذكاء اصطناعي (رشيد) بثلاث شخصيات.\nهذا الـ Backend بيخدّم تطبيق الموبايل (Flutter).\n\n## البدء السريع (من هذه الصفحة)\n\n1. نفّذ `POST /auth/register` (أو `POST /auth/login` إذا عندك حساب).\n2. انسخ قيمة `access_token` من الرد.\n3. اضغط زر **Authorize** أعلى الصفحة وألصق التوكن (بدون كلمة Bearer).\n4. جرّب أي Endpoint محمي (القفل 🔒 بجانبه).\n\n## مبادئ عامة\n\n- **المصادقة:** JWT من نوع Bearer عبر الهيدر `Authorization: Bearer <access_token>`.\n  كل الـ Endpoints محمية ما عدا `/auth/*` و`/personas` و`/health`.\n- **العملة:** كل المبالغ بالدينار الأردني (JOD).\n- **المسودات لا تحفظ شيئًا:** `/transactions/scan-receipt` و`/transactions/parse-sms`\n  و`/transactions/sms-import/preview` تقرأ وتحلّل فقط. الحفظ الفعلي دايمًا بطلب منفصل\n  يقرّره المستخدم بعد مراجعة المسودة.\n- **رشيد لا يعدّل بياناتك بدون موافقة:** أي تغيير مالي يقترحه رشيد (تصحيح تصنيف، دفعة لهدف،\n  هدف جديد، تسجيل دخل) يُنشأ كاقتراح بحالة `pending`، ولا يُنفَّذ إلا عند\n  `POST /agent/actions/{id}/confirm` بطلب صريح من المستخدم.\n- **ازدحام Gemini:** عند ازدحام خدمة الذكاء الاصطناعي، `/agent/chat` يرجّع `200` مع رسالة اعتذار\n  داخل `reply` مع `ai_available=false` بدل خطأ HTTP (ولا تُحفظ الرسالة بسجل المحادثة، فإعادة الإرسال آمنة).\n\n## صيغة الأخطاء\n\nأخطاء المنطق ترجع بالشكل `{\"detail\": \"رسالة بالعربي\"}` مع كود HTTP مناسب\n(400 طلب غير صالح، 401 غير مصادَق، 404 غير موجود، 409 تعارض).\nأخطاء التحقق من المدخلات (Validation) ترجع `422` بالصيغة القياسية لـ FastAPI.",
+    "description": "**رشيد** تطبيق لإدارة المصاريف والتوفير، مبني حول وكيل ذكاء اصطناعي (رشيد) بثلاث شخصيات.\nهذا الـ Backend بيخدّم تطبيق الموبايل (Flutter).\n\n## البدء السريع (من هذه الصفحة)\n\n1. نفّذ `POST /auth/register` (أو `POST /auth/login` إذا عندك حساب).\n2. انسخ قيمة `access_token` من الرد.\n3. اضغط زر **Authorize** أعلى الصفحة وألصق التوكن (بدون كلمة Bearer).\n4. جرّب أي Endpoint محمي (القفل 🔒 بجانبه).\n\n## مبادئ عامة\n\n- **المصادقة:** JWT من نوع Bearer عبر الهيدر `Authorization: Bearer <access_token>`.\n  كل الـ Endpoints محمية ما عدا `/auth/*` و`/personas` و`/health`.\n- **العملة:** كل المبالغ بالدينار الأردني (JOD).\n- **المسودات لا تحفظ شيئًا:** `/transactions/scan-receipt` و`/transactions/parse-sms`\n  و`/transactions/sms-import/preview` تقرأ وتحلّل فقط. الحفظ الفعلي دايمًا بطلب منفصل\n  يقرّره المستخدم بعد مراجعة المسودة.\n- **رشيد لا يعدّل بياناتك بدون موافقة:** أي تغيير مالي يقترحه رشيد (تصحيح تصنيف، دفعة لهدف،\n  هدف جديد، تسجيل دخل) يُنشأ كاقتراح بحالة `pending`، ولا يُنفَّذ إلا عند\n  `POST /agent/actions/{id}/confirm` بطلب صريح من المستخدم.\n- **حدود استهلاك الذكاء الاصطناعي:** لكل مستخدم حد يومي (نافذة متحركة 24 ساعة) على المحادثة وقراءة الفواتير\n  وتوليد الاقتراحات. عند التجاوز يرجع `429` مع هيدر `Retry-After` (بالثواني)، وعند بلوغ الحد العام للتطبيق `503`.\n  الحدود قابلة للضبط من إعدادات السيرفر.\n- **ازدحام Gemini:** عند ازدحام خدمة الذكاء الاصطناعي، `/agent/chat` يرجّع `200` مع رسالة اعتذار\n  داخل `reply` مع `ai_available=false` بدل خطأ HTTP (ولا تُحفظ الرسالة بسجل المحادثة، فإعادة الإرسال آمنة).\n\n## صيغة الأخطاء\n\nأخطاء المنطق ترجع بالشكل `{\"detail\": \"رسالة بالعربي\"}` مع كود HTTP مناسب\n(400 طلب غير صالح، 401 غير مصادَق، 404 غير موجود، 409 تعارض).\nأخطاء التحقق من المدخلات (Validation) ترجع `422` بالصيغة القياسية لـ FastAPI.",
     "version": "0.1.0"
   },
   "paths": {
@@ -406,6 +406,26 @@
           },
           "400": {
             "description": "صيغة الصورة غير مدعومة، أو حجمها أكبر من 10 ميغابايت، أو الصورة فارغة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "تجاوز المستخدم الحد اليومي لقراءة الفواتير.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1176,6 +1196,26 @@
               }
             }
           },
+          "429": {
+            "description": "تجاوز المستخدم الحد اليومي للمحادثة (يرجع Retry-After بالثواني).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1297,6 +1337,26 @@
           },
           "401": {
             "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "تجاوز المستخدم الحد اليومي لتوليد الاقتراحات.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1477,7 +1537,7 @@
           "System"
         ],
         "summary": "فحص حالة السيرفر",
-        "description": "يرجّع حالة السيرفر واسم التطبيق والبيئة. بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة.",
+        "description": "يرجّع حالة السيرفر واسم التطبيق والبيئة ومزوّد الذكاء الاصطناعي (`gemini` أو `demo`). بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة.",
         "operationId": "health_check_health_get",
         "responses": {
           "200": {

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.docs import UNAUTHORIZED, bad_request, not_found, responses
+from app.api.docs import UNAUTHORIZED, bad_request, not_found, responses, service_unavailable, too_many_requests
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
@@ -25,7 +25,11 @@ router = APIRouter(prefix="/agent", tags=["Agent"], responses=UNAUTHORIZED)
         "الاصطناعي يرجع الرد 200 مع رسالة اعتذار داخل `reply` والحقل `ai_available=false`، ولا تُحفظ "
         "الرسالة بسجل المحادثة، فإعادة إرسالها آمنة."
     ),
-    responses=bad_request("المستخدم لم يُكمل الـ Onboarding ولم يختر شخصية لرشيد بعد."),
+    responses=responses(
+        bad_request("المستخدم لم يُكمل الـ Onboarding ولم يختر شخصية لرشيد بعد."),
+        too_many_requests("تجاوز المستخدم الحد اليومي للمحادثة (يرجع Retry-After بالثواني)."),
+        service_unavailable("بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي."),
+    ),
 )
 def chat_with_agent(
     data: ChatMessageCreate,
@@ -83,6 +87,10 @@ def list_pending_actions(
         "يفحص وضع المستخدم ويولّد اقتراحات جديدة عند الحاجة: تصحيح تصنيف معاملات غير مصنّفة "
         "(بمساعدة Gemini)، أو دفعة لهدف قريب من الاكتمال. القائمة الفارغة رد طبيعي وليست خطأ. "
         "لا يُنفَّذ أي تعديل هنا؛ الاقتراحات فقط."
+    ),
+    responses=responses(
+        too_many_requests("تجاوز المستخدم الحد اليومي لتوليد الاقتراحات."),
+        service_unavailable("بلغ التطبيق الحد العام اليومي لاستهلاك الذكاء الاصطناعي."),
     ),
 )
 def check_for_new_actions(

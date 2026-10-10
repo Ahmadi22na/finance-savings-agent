@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.services import ai_usage_service
+from app.models.ai_usage import AiUsageKind
 from app.core.log_safety import describe_text, safe_error
 from app.agent.mood_engine import compute_mood_state, build_full_system_prompt
 from app.agent.financial_context import get_essentials_estimate
@@ -162,6 +164,8 @@ def send_message_to_agent(db: Session, user: User, message: str) -> ChatResult:
 
     history = _get_recent_history(db, user)
 
+    ai_usage_service.enforce_quota(db, user, AiUsageKind.CHAT)  # 429/503 لو تجاوز الحد اليومي
+
     provider = get_ai_provider()
     reply = provider.generate_reply(full_system_prompt, message, history=history)
 
@@ -171,6 +175,7 @@ def send_message_to_agent(db: Session, user: User, message: str) -> ChatResult:
         # هيك إعادة الإرسال آمنة (ما في تكرار)، وما بيتلوّث سياق Gemini برسائل الاعتذار.
         return ChatResult(text=reply.text, ai_available=False)
 
+    ai_usage_service.record_usage(db, user, AiUsageKind.CHAT)  # الاستدعاء الناجح بس بيستهلك من الحصة
     raw_reply_text = reply.text
 
     essentials_data, raw_reply_text = _extract_and_strip_block(ESSENTIALS_UPDATE_PATTERN, raw_reply_text)

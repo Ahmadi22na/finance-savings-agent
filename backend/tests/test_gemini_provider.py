@@ -18,9 +18,11 @@ class FakeModels:
     def __init__(self, script: dict[str, list]):
         self.script = {model: list(outcomes) for model, outcomes in script.items()}
         self.calls: list[str] = []
+        self.configs: list[dict] = []
 
     def generate_content(self, model, contents, config):
         self.calls.append(model)
+        self.configs.append(config)
         outcome = self.script[model].pop(0)
         if isinstance(outcome, Exception):
             raise outcome
@@ -108,3 +110,18 @@ def test_missing_model_falls_back(monkeypatch):
     reply = provider.generate_reply("sys", "hi")
     assert reply.text == "شغّال"
     assert models.calls == ["primary", "backup"]
+
+
+def test_max_output_tokens_is_sent_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "AI_MAX_OUTPUT_TOKENS", 123)
+    provider, models = make_provider({"primary": ["تمام"]})
+    provider.generate_reply("sys", "hi")
+    assert models.configs[0]["max_output_tokens"] == 123
+    assert models.configs[0]["system_instruction"] == "sys"
+
+
+def test_max_output_tokens_zero_means_no_limit(monkeypatch):
+    monkeypatch.setattr(settings, "AI_MAX_OUTPUT_TOKENS", 0)
+    provider, models = make_provider({"primary": ["تمام"]})
+    provider.generate_reply("sys", "hi")
+    assert "max_output_tokens" not in models.configs[0]

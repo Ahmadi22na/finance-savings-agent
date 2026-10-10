@@ -28,6 +28,9 @@ APP_DESCRIPTION = """
 - **رشيد لا يعدّل بياناتك بدون موافقة:** أي تغيير مالي يقترحه رشيد (تصحيح تصنيف، دفعة لهدف،
   هدف جديد، تسجيل دخل) يُنشأ كاقتراح بحالة `pending`، ولا يُنفَّذ إلا عند
   `POST /agent/actions/{id}/confirm` بطلب صريح من المستخدم.
+- **حدود استهلاك الذكاء الاصطناعي:** لكل مستخدم حد يومي (نافذة متحركة 24 ساعة) على المحادثة وقراءة الفواتير
+  وتوليد الاقتراحات. عند التجاوز يرجع `429` مع هيدر `Retry-After` (بالثواني)، وعند بلوغ الحد العام للتطبيق `503`.
+  الحدود قابلة للضبط من إعدادات السيرفر.
 - **ازدحام Gemini:** عند ازدحام خدمة الذكاء الاصطناعي، `/agent/chat` يرجّع `200` مع رسالة اعتذار
   داخل `reply` مع `ai_available=false` بدل خطأ HTTP (ولا تُحفظ الرسالة بسجل المحادثة، فإعادة الإرسال آمنة).
 
@@ -101,3 +104,11 @@ def not_found(description: str) -> dict:
 
 def conflict(description: str) -> dict:
     return {409: error_response(description)}
+
+
+def too_many_requests(description: str) -> dict:
+    return {429: error_response(description)}
+
+
+def service_unavailable(description: str) -> dict:
+    return {503: error_response(description)}

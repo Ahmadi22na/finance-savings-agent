@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
+from app.services import ai_usage_service
+from app.models.ai_usage import AiUsageKind
 from app.core.log_safety import safe_error
 from app.agent.mood_engine import compute_mood_state, build_full_system_prompt, MoodState
 from app.agent.providers.factory import get_ai_provider
@@ -67,12 +69,17 @@ def check_and_generate_nudge(db: Session, user: User) -> str | None:
 
     full_system_prompt = build_full_system_prompt(user, mood.state.value, mood.reason)
 
+    if not ai_usage_service.check_quota(db, user, AiUsageKind.NUDGE).allowed:
+        return None  # تجاوز حد الاستهلاك: الـ Nudge اختياري، منسكت بدل ما نرمي خطأ
+
     provider = get_ai_provider()
     reply = provider.generate_reply(full_system_prompt, NUDGE_INSTRUCTION)
 
     if reply.raw_error:
         logger.error("Gemini provider error while generating nudge for user %s: %s", user.id, safe_error(reply.raw_error))
         return None  # ما نبعث Nudge فاشل أو فاضي للمستخدم — بس نسجل ونسكت هالمرة
+
+    ai_usage_service.record_usage(db, user, AiUsageKind.NUDGE)
 
     db.add(AgentInteraction(
         user_id=user.id, trigger_type=InteractionTrigger.NUDGE,

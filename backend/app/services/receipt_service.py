@@ -16,6 +16,8 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.services import ai_usage_service
+from app.models.ai_usage import AiUsageKind
 from app.core.log_safety import describe_text, safe_error
 from app.agent.providers.base import BaseAIProvider
 from app.models.category import Category
@@ -53,6 +55,8 @@ def scan_receipt(
         '{"amount": <رقم أو null>, "category_id": "<id أو null>", "note": "<نص قصير أو null>"}'
     )
 
+    ai_usage_service.enforce_quota(db, user, AiUsageKind.RECEIPT_SCAN)  # 429/503 لو تجاوز الحد اليومي
+
     reply = provider.analyze_image(
         system_prompt="أنت مساعد قراءة فواتير دقيق. رد بصيغة JSON فقط، بدون أي نص إضافي.",
         user_message=prompt,
@@ -63,6 +67,8 @@ def scan_receipt(
     if reply.raw_error:
         logger.error("Receipt scan AI call failed: %s", safe_error(reply.raw_error))
         return ReceiptScanResult(amount=None, category_id=None, category_name=None, note=None, readable=False)
+
+    ai_usage_service.record_usage(db, user, AiUsageKind.RECEIPT_SCAN)  # الاستدعاء الناجح بس بيستهلك من الحصة
 
     # نتحمّل إنه بعض النماذج بترجع الـ JSON ملفوف بـ ```json ... ``` رغم التعليمات الصريحة
     cleaned = reply.text.strip().strip("`").removeprefix("json").strip()

@@ -17,6 +17,8 @@ from app.services.categorizer.rule_based import RuleBasedCategorizer
 
 @lru_cache
 def get_categorizer() -> BaseCategorizer:
+    if settings.AI_PROVIDER == "demo":
+        return RuleBasedCategorizer()  # وضع العرض: تصنيف بالكلمات المفتاحية، بدون أي اتصال خارجي
     if settings.GEMINI_API_KEY:
         return GeminiCategorizer(get_ai_provider())
     return RuleBasedCategorizer()

@@ -47,8 +47,16 @@ app.include_router(agent.router, prefix="/api/v1")
     "/health",
     tags=["System"],
     summary="فحص حالة السيرفر",
-    description="يرجّع حالة السيرفر واسم التطبيق والبيئة. بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة.",
+    description=(
+        "يرجّع حالة السيرفر واسم التطبيق والبيئة ومزوّد الذكاء الاصطناعي (`gemini` أو `demo`). "
+        "بدون مصادقة؛ يستخدمه Docker والخوادم للتأكد إن الخدمة شغّالة."
+    ),
 )
 def health_check():
     """Endpoint بسيط يستخدمه Docker/الخوادم للتأكد إن السيرفر شغال — معيار أساسي بأي نظام إنتاجي."""
-    return {"status": "ok", "app": settings.APP_NAME, "environment": settings.ENVIRONMENT}
+    return {
+        "status": "ok",
+        "app": settings.APP_NAME,
+        "environment": settings.ENVIRONMENT,
+        "ai_provider": settings.AI_PROVIDER,
+    }

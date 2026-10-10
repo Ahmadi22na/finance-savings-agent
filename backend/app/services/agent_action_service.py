@@ -15,6 +15,8 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.services import ai_usage_service
+from app.models.ai_usage import AiUsageKind
 from app.core.log_safety import describe_text, safe_error
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
@@ -282,11 +284,19 @@ def _suggest_category_corrections(db: Session, user: User) -> list[AgentAction]:
     provider = get_ai_provider()
     created: list[AgentAction] = []
 
+    first_call = True
     for transaction in uncategorized:
         if str(transaction.id) in already_suggested_ids:
             continue
 
+        if first_call:
+            ai_usage_service.enforce_quota(db, user, AiUsageKind.SUGGESTION)  # 429/503 لو تجاوز الحد اليومي
+            first_call = False
+        elif not ai_usage_service.check_quota(db, user, AiUsageKind.SUGGESTION).allowed:
+            break  # وصلنا الحد أثناء الفحص: منكتفي بالاقتراحات الي تولّدت لهلأ
+
         suggestion = _ask_ai_for_category(provider, transaction, category_lookup)
+        ai_usage_service.record_usage(db, user, AiUsageKind.SUGGESTION)
         if suggestion is None:
             continue
 

@@ -73,6 +73,10 @@ class GeminiProvider(BaseAIProvider):
           AGENT_FALLBACK_MODEL بنجرّبه، وإلا رسالة اعتذار.
         - 404 (الموديل مش متوفر/انسحب): ننتقل للموديل البديل إن وجد.
         """
+        config: dict = {"system_instruction": system_prompt}
+        if settings.AI_MAX_OUTPUT_TOKENS > 0:
+            config["max_output_tokens"] = settings.AI_MAX_OUTPUT_TOKENS  # حد أقصى لطول الرد (يحدّ التكلفة)
+
         models = [settings.AGENT_MODEL]
         fallback = settings.AGENT_FALLBACK_MODEL
         if fallback and fallback != settings.AGENT_MODEL:
@@ -88,7 +92,7 @@ class GeminiProvider(BaseAIProvider):
                     response = self._client.models.generate_content(
                         model=model,
                         contents=contents,
-                        config={"system_instruction": system_prompt},
+                        config=config,
                     )
                     return AgentReply(text=response.text)
 

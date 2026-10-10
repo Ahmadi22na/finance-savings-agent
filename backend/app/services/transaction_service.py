@@ -3,6 +3,10 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.services.categorizer.rule_based import RuleBasedCategorizer
+from app.services.categorizer.gemini_based import GeminiCategorizer
+from app.services import ai_usage_service
+from app.models.ai_usage import AiUsageKind
 from app.models.transaction import Transaction, TransactionSource
 from app.models.user import User
 from app.schemas.transaction import TransactionQuickLogCreate
@@ -29,7 +33,16 @@ def create_quick_log_transaction(
         # مسار التصنيف الذكي: ما وصلنا category_id، لازم نحاول نخمّن من النص
         available_categories = category_service.list_categories_for_user(db, user)
         categorizer = get_categorizer()
-        suggestion = categorizer.suggest_category(data.note or "", available_categories)
+        note = data.note or ""
+        if isinstance(categorizer, GeminiCategorizer) and note.strip():
+            if ai_usage_service.check_quota(db, user, AiUsageKind.CATEGORIZE).allowed:
+                suggestion = categorizer.suggest_category(note, available_categories)
+                ai_usage_service.record_usage(db, user, AiUsageKind.CATEGORIZE)
+            else:
+                # تجاوز حد الاستهلاك: منرجع للتصنيف بالكلمات المفتاحية بدل ما نوقف التسجيل
+                suggestion = RuleBasedCategorizer().suggest_category(note, available_categories)
+        else:
+            suggestion = categorizer.suggest_category(note, available_categories)
 
         if suggestion.category_id is not None:
             category_id = suggestion.category_id
