@@ -1,5 +1,7 @@
 import uuid
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.models.user import IncomeType
@@ -22,6 +24,14 @@ class UserRegister(BaseModel):
             ]
         }
     }
+
+
+class AccountDeleteRequest(BaseModel):
+    """طلب حذف الحساب: لازم كلمة المرور (إعادة مصادقة) وتأكيد صريح."""
+    password: str = Field(description="كلمة مرور الحساب (للتأكد إن صاحب الحساب هو اللي بيحذف)")
+    confirm: Literal[True] = Field(description="تأكيد صريح: لازم يكون true")
+
+    model_config = {"json_schema_extra": {"examples": [{"password": "Passw0rd!", "confirm": True}]}}
 
 
 class UserLogin(BaseModel):

@@ -145,6 +145,64 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "حذف الحساب وكل بياناتي",
+        "description": "يحذف حساب المستخدم نهائيًا مع كل بياناته: الأهداف والمعاملات وتوزيعات الدخل ومحادثات رشيد والاقتراحات وسجل استهلاك الذكاء الاصطناعي والتصنيفات الخاصة. لا يمكن التراجع. يتطلب كلمة المرور وتأكيدًا صريحًا (`confirm: true`)، ويصبح التوكن غير صالح فورًا ويمكن استخدام نفس رقم الهاتف لحساب جديد. لا يرجّع محتوى (204).",
+        "operationId": "delete_me_api_v1_users_me_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "كلمة المرور غير صحيحة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/categories": {
@@ -1554,6 +1612,34 @@
   },
   "components": {
     "schemas": {
+      "AccountDeleteRequest": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "title": "Password",
+            "description": "كلمة مرور الحساب (للتأكد إن صاحب الحساب هو اللي بيحذف)"
+          },
+          "confirm": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirm",
+            "description": "تأكيد صريح: لازم يكون true"
+          }
+        },
+        "type": "object",
+        "required": [
+          "password",
+          "confirm"
+        ],
+        "title": "AccountDeleteRequest",
+        "description": "طلب حذف الحساب: لازم كلمة المرور (إعادة مصادقة) وتأكيد صريح.",
+        "examples": [
+          {
+            "confirm": true,
+            "password": "Passw0rd!"
+          }
+        ]
+      },
       "AgentActionOut": {
         "properties": {
           "id": {
@@ -2929,7 +3015,7 @@
     },
     {
       "name": "Users",
-      "description": "بيانات المستخدم الحالي."
+      "description": "بيانات المستخدم الحالي، وحذف الحساب مع كل بياناته."
     },
     {
       "name": "Onboarding",

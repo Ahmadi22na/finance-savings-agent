@@ -48,6 +48,19 @@ class AuthService {
     }
   }
 
+  /// حذف الحساب وكل البيانات نهائيًا (بيحتاج كلمة المرور). عند النجاح بنمسح التوكنات من الجهاز.
+  Future<void> deleteAccount({required String password}) async {
+    try {
+      await _apiClient.dio.delete('/users/me', data: {
+        'password': password,
+        'confirm': true,
+      });
+      await ApiClient.clearTokens();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
   Future<void> logout() async {
     await ApiClient.clearTokens();
   }

@@ -11,7 +11,7 @@ import '../../models/sms_import.dart';
 import '../../models/transaction.dart';
 import '../../widgets/income_allocation_sheet.dart';
 
-enum _Stage { loading, permissionDenied, permanentlyDenied, nothingFound, ready, importing, failed }
+enum _Stage { intro, loading, permissionDenied, permanentlyDenied, nothingFound, ready, importing, failed }
 
 
 ///
@@ -36,6 +36,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
   String? _errorMessage;
   List<SmsImportCandidate> _candidates = [];
   final Set<int> _selected = {};
+  bool _consented = false;
 
   @override
   void initState() {
@@ -50,6 +51,12 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
     });
 
     var status = await Permission.sms.status;
+    if (!status.isGranted && !_consented) {
+      // شرح واضح قبل ما نطلب الصلاحية: شو بنقرا، شو بنبعت، شو بنخزّن، والبديل اليدوي
+      if (!mounted) return;
+      setState(() => _stage = _Stage.intro);
+      return;
+    }
     if (!status.isGranted) {
       status = await Permission.sms.request();
     }
@@ -187,6 +194,9 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
 
   Widget _buildBody() {
     switch (_stage) {
+      case _Stage.intro:
+        return _buildIntro();
+
       case _Stage.loading:
       case _Stage.importing:
         return const Center(child: CircularProgressIndicator());
@@ -225,6 +235,63 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
       case _Stage.ready:
         return _buildList();
     }
+  }
+
+  Widget _buildIntro() {
+    const points = [
+      'بنقرا فقط الرسائل الواردة من آخر 90 يوم، وبنفلترها على جهازك: ما بنبعت غير الرسائل الفيها JOD أو دينار.',
+      'بنبعت نص الرسالة ووقتها لسيرفرنا لتحليلها بس، وما بنخزّن نصها. بنحفظ فقط المبلغ والنوع والوصف للمعاملات الي بتختارها.',
+      'ما بنشارك رسائلك مع أي جهة ثانية، وبتقدر تسحب الصلاحية بأي وقت من إعدادات الهاتف.',
+      'ما بدك تعطي صلاحية؟ ولا يهمك: الصق نص الرسالة يدويًا من شاشة التسجيل السريع.',
+    ];
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(child: Icon(Icons.sms_outlined, size: 48, color: Colors.black38)),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text('قبل ما نقرا رسائلك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 16),
+            for (final point in points)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.check_circle_outline, size: 18, color: Colors.black45),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(point, style: const TextStyle(height: 1.5))),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  _consented = true;
+                  _load();
+                },
+                child: const Text('موافق، كمّل'),
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('لا، بدخلها يدويًا'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _message({required IconData icon, required String text, required List<Widget> actions}) {

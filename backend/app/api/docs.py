@@ -44,7 +44,7 @@ APP_DESCRIPTION = """
 TAGS_METADATA = [
     {"name": "System", "description": "فحوصات حالة السيرفر."},
     {"name": "Auth", "description": "إنشاء الحساب وتسجيل الدخول (ترجع توكنات JWT)."},
-    {"name": "Users", "description": "بيانات المستخدم الحالي."},
+    {"name": "Users", "description": "بيانات المستخدم الحالي، وحذف الحساب مع كل بياناته."},
     {"name": "Onboarding", "description": "إعداد الحساب لأول مرة: نوع الدخل، شخصية رشيد، وأول هدف."},
     {"name": "Personas", "description": "شخصيات رشيد المتاحة للاختيار (عامة، بدون مصادقة)."},
     {"name": "Categories", "description": "تصنيفات المعاملات (الافتراضية + الخاصة بالمستخدم)."},

@@ -176,7 +176,7 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
             body = f"You have successfully received {amount:.3f} JOD from Client {income_count} via CliQ"
             tx = add_tx(
                 TransactionType.INCOME, income_cat, amount, note, when, TransactionSource.SMS,
-                raw={"body": body, "sender": "BANK"},
+                raw=None,  # نص الرسالة ما بينخزّن (نفس سلوك الاستيراد الحقيقي)؛ البصمة تحت كافية
                 ref=hashlib.sha256(f"{body}{when.isoformat()}".encode()).hexdigest(),
             )
         else:

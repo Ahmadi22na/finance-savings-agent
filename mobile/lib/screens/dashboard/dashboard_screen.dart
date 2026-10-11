@@ -4,12 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../core/agent_action_providers.dart';
-import '../../core/api_client.dart';
 import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
 import '../../widgets/transaction_tile.dart';
-import '../auth/login_screen.dart';
+import '../account/account_screen.dart';
 import '../quick_log/quick_log_screen.dart';
 import '../chat/chat_screen.dart';
 import '../suggestions/suggestions_screen.dart';
@@ -67,16 +66,11 @@ class DashboardScreen extends ConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await ApiClient.clearTokens();
-              ref.read(currentUserProvider.notifier).state = null;
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
+            icon: const Icon(Icons.person_outline),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AccountScreen()),
+              );
             },
           ),
         ],

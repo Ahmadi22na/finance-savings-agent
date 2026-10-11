@@ -98,7 +98,8 @@ def confirm_import(db: Session, user: User, messages: list[SmsMessageIn]) -> lis
             note=parsed.note,
             occurred_at=_as_utc(message.received_at),
             external_ref=ref,
-            raw_source_data={"sms_body": message.body.strip()},
+            # بدون نص الرسالة: فيه الرصيد ورقم الهاتف وما في داعي نخزّنه. البصمة (external_ref) كافية لمنع التكرار.
+            raw_source_data=None,
         )
         db.add(transaction)
         created.append(transaction)
