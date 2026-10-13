@@ -35,6 +35,8 @@ from app.database.session import SessionLocal
 from app.models.agent import (
     AgentAction, AgentActionStatus, AgentActionType, AgentInteraction, InteractionTrigger,
 )
+from app.models.active_day import UserActiveDay
+from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.income_allocation import IncomeAllocation
@@ -43,6 +45,7 @@ from app.models.transaction import Transaction, TransactionSource, TransactionTy
 from app.models.user import IncomeType, User
 
 DEMO_NAME = "سامر (ديمو)"
+DEMO_PHONE = "0799000000"
 DAYS_BACK = 60
 
 # (التصنيف، ملاحظات محتملة، أقل مبلغ، أعلى مبلغ، احتمال حدوثه باليوم)
@@ -110,6 +113,8 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
             db.query(IncomeAllocation).filter(IncomeAllocation.transaction_id.in_(tx_ids)).delete(
                 synchronize_session=False
             )
+        db.query(UserActiveDay).filter(UserActiveDay.user_id == old.id).delete(synchronize_session=False)
+        db.query(AiUsageEvent).filter(AiUsageEvent.user_id == old.id).delete(synchronize_session=False)
         db.delete(old)
         db.commit()
 
@@ -118,6 +123,7 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
         id=uuid.uuid4(), name=DEMO_NAME, phone=phone, hashed_password=hash_password(password),
         income_type=IncomeType.VARIABLE, avg_monthly_income_estimate=450,
         estimated_monthly_essentials=180, persona_id=persona.id, has_completed_onboarding=True,
+        created_at=now - timedelta(days=DAYS_BACK + 1),  # مسجّل قبل أول معاملاته، زي الواقع
     )
     db.add(user)
     db.flush()
@@ -269,6 +275,12 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
             reasoning=f"إنت قريب من هدف '{laptop.title}' ({laptop.progress_percentage}%)! دفعة بسيطة بتقرّبك أكتر.",
         ))
 
+    # أيام نشاط واقعية (حوالي 60% من آخر 60 يوم) عشان تقرير المقاييس يظهر بيانات بوضع العرض
+    active_rng = random.Random(11)
+    for days_ago in range(DAYS_BACK):
+        if days_ago == 0 or active_rng.random() < 0.6:
+            db.add(UserActiveDay(user_id=user.id, day=(now - timedelta(days=days_ago)).date()))
+
     db.commit()
     db.refresh(user)
     return {
@@ -281,7 +293,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="تجهيز حساب Demo كامل لتطبيق رشيد")
     parser.add_argument("--persona", choices=["wise", "business", "energetic"], default="energetic")
     parser.add_argument("--mood", choices=["energized", "concerned", "neutral"], default="energized")
-    parser.add_argument("--phone", default="0799000000")
+    parser.add_argument("--phone", default=DEMO_PHONE)
     parser.add_argument("--password", default="demo1234")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.docs import conflict, error_response
 from app.database.session import get_db
 from app.schemas.auth import UserRegister, UserLogin, TokenPair
-from app.services import auth_service
+from app.services import auth_service, usage_service
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 )
 def register(data: UserRegister, db: Session = Depends(get_db)):
     user = auth_service.register_user(db, data)
+    usage_service.record_active_day(db, user)
     return auth_service.build_token_pair(user)
 
 
@@ -36,4 +37,5 @@ def register(data: UserRegister, db: Session = Depends(get_db)):
 )
 def login(data: UserLogin, db: Session = Depends(get_db)):
     user = auth_service.authenticate_user(db, data)
+    usage_service.record_active_day(db, user)
     return auth_service.build_token_pair(user)

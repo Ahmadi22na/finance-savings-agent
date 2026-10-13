@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import verify_password
 from app.models.agent import AgentAction, AgentInteraction
+from app.models.active_day import UserActiveDay
 from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
 from app.models.goal import Goal
@@ -39,6 +40,7 @@ def delete_account(db: Session, user: User, password: str) -> None:
         db.query(AgentAction).filter(AgentAction.user_id == user_id).delete(synchronize_session=False)
         db.query(AgentInteraction).filter(AgentInteraction.user_id == user_id).delete(synchronize_session=False)
         db.query(AiUsageEvent).filter(AiUsageEvent.user_id == user_id).delete(synchronize_session=False)
+        db.query(UserActiveDay).filter(UserActiveDay.user_id == user_id).delete(synchronize_session=False)
         db.query(Transaction).filter(Transaction.user_id == user_id).delete(synchronize_session=False)
         db.query(Goal).filter(Goal.user_id == user_id).delete(synchronize_session=False)
         db.query(Category).filter(Category.user_id == user_id).delete(synchronize_session=False)  # التصنيفات الخاصة فقط

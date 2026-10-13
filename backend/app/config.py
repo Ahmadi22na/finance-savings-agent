@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # الأفضل ما تنطبع الاستعلامات بالإنتاج. بالإنتاج بيتجاهل هالإعداد دايمًا.
     SQL_ECHO: bool = False
 
+    # فرق التوقيت (بالساعات عن UTC) لتحديد "يوم النشاط" عند قياس العودة للاستخدام. الأردن = +3 (بدون توقيت صيفي).
+    ANALYTICS_UTC_OFFSET_HOURS: int = 3
+
     # --- Database ---
     DATABASE_URL: str = "postgresql://rasheed_user:rasheed_pass@db:5432/rasheed_db"
 

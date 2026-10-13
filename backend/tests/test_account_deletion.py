@@ -1,9 +1,10 @@
 """
 R04 — حذف الحساب وكل بياناته: كامل، محصور بصاحب الحساب، ومحمي بكلمة المرور.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.models.agent import AgentAction, AgentActionStatus, AgentActionType, AgentInteraction, InteractionTrigger
+from app.models.active_day import UserActiveDay
 from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category, CategoryType
 from app.models.goal import Goal
@@ -37,6 +38,7 @@ def populate(client, db_session, headers, user):
         payload={"amount": 5}, reasoning="x",
     ))
     db_session.add(AiUsageEvent(user_id=user.id, kind="chat", created_at=datetime.now(timezone.utc)))
+    db_session.add(UserActiveDay(user_id=user.id, day=datetime.now(timezone.utc).date() - timedelta(days=5)))
     db_session.commit()
 
 
@@ -48,6 +50,7 @@ def rows_for(db_session, user_id):
         "interactions": db_session.query(AgentInteraction).filter(AgentInteraction.user_id == user_id).count(),
         "actions": db_session.query(AgentAction).filter(AgentAction.user_id == user_id).count(),
         "usage": db_session.query(AiUsageEvent).filter(AiUsageEvent.user_id == user_id).count(),
+        "active_days": db_session.query(UserActiveDay).filter(UserActiveDay.user_id == user_id).count(),
         "categories": db_session.query(Category).filter(Category.user_id == user_id).count(),
     }
 

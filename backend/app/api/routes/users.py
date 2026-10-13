@@ -6,7 +6,7 @@ from app.core.dependencies import get_current_user
 from app.database.session import get_db
 from app.models.user import User
 from app.schemas.auth import AccountDeleteRequest, UserOut
-from app.services import account_service
+from app.services import account_service, usage_service
 
 router = APIRouter(prefix="/users", tags=["Users"], responses=UNAUTHORIZED)
 
@@ -20,8 +20,12 @@ router = APIRouter(prefix="/users", tags=["Users"], responses=UNAUTHORIZED)
         "يستخدمه التطبيق عند الإقلاع للتحقق من صلاحية التوكن وتوجيه المستخدم للشاشة المناسبة."
     ),
 )
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """أول Endpoint محمي بالتطبيق — أي طلب لازم يوصل توكن صالح بالـ Authorization header."""
+    usage_service.record_active_day(db, current_user)  # يوم نشاط واحد باليوم (لقياس العودة للاستخدام)
     return current_user
 
 
