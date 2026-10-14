@@ -358,6 +358,95 @@
         ]
       }
     },
+    "/api/v1/transactions/{transaction_id}": {
+      "patch": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "تعديل تصنيف معاملة",
+        "description": "يغيّر تصنيف معاملة المستخدم (أو يزيله بإرسال `category_id: null`). بعد التعديل يصبح `category_origin = user` وتُمسح درجة الثقة التلقائية، فتختفي شارة «تصنيف تلقائي» من الواجهة. التصنيف لازم يكون افتراضيًا أو خاصًا بالمستخدم، ويناسب نوع المعاملة (دخل أو مصروف).",
+        "operationId": "update_transaction_api_v1_transactions__transaction_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransactionUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "التصنيف غير موجود (أو ليس للمستخدم)، أو لا يناسب نوع المعاملة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "المعاملة غير موجودة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/transactions": {
       "get": {
         "tags": [
@@ -1719,7 +1808,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "contentMediaType": "application/octet-stream",
+            "format": "binary",
             "title": "File",
             "description": "صورة الفاتورة (JPEG أو PNG أو WEBP، حتى 10 ميغابايت)"
           }
@@ -1762,6 +1851,15 @@
             "name": "هدايا"
           }
         ]
+      },
+      "CategoryOrigin": {
+        "type": "string",
+        "enum": [
+          "user",
+          "auto"
+        ],
+        "title": "CategoryOrigin",
+        "description": "مين حدّد تصنيف المعاملة:\nUSER = المستخدم اختاره أو صحّحه (أو وافق على اقتراح رشيد)\nAUTO = التطبيق خمّنه تلقائيًا (قواعد/Gemini) ولسا المستخدم ما راجعه — بيظهر بشارة + درجة الثقة\nNULL = غير معروف (معاملة قديمة) أو بدون تصنيف"
       },
       "CategoryOut": {
         "properties": {
@@ -2699,6 +2797,29 @@
             ],
             "title": "Suggestion Confidence"
           },
+          "category_origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CategoryOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`user` اختاره/صحّحه المستخدم، `auto` خمّنه التطبيق، أو null (غير معروف/بدون تصنيف)"
+          },
+          "category_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Confidence",
+            "description": "ثقة التصنيف التلقائي (0 إلى 1) عندما يكون `auto`"
+          },
           "unallocated_amount": {
             "type": "number",
             "title": "Unallocated Amount",
@@ -2779,6 +2900,17 @@
             ],
             "title": "Occurred At",
             "description": "وقت المعاملة؛ لو ما تحدد، بنعتبره الآن"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "ocr",
+              "sms"
+            ],
+            "title": "Source",
+            "description": "من وين إجت البيانات: `manual` إدخال يدوي، `ocr` مسودة من صورة فاتورة راجعها المستخدم، `sms` مسودة من رسالة بنكية ملصوقة. للعرض والإحصاء فقط (استيراد الرسائل التلقائي بيحدد مصدره بنفسه).",
+            "default": "manual"
           }
         },
         "type": "object",
@@ -2797,6 +2929,12 @@
           {
             "amount": 12,
             "note": "غدا مع الشباب",
+            "type": "expense"
+          },
+          {
+            "amount": 12.5,
+            "note": "سوبرماركت",
+            "source": "ocr",
             "type": "expense"
           }
         ]
@@ -2819,6 +2957,35 @@
           "expense"
         ],
         "title": "TransactionType"
+      },
+      "TransactionUpdate": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id",
+            "description": "التصنيف الجديد (من `GET /categories`)، أو null لإزالته"
+          }
+        },
+        "type": "object",
+        "required": [
+          "category_id"
+        ],
+        "title": "TransactionUpdate",
+        "description": "تعديل تصنيف معاملة. `null` = إزالة التصنيف.",
+        "examples": [
+          {
+            "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          {}
+        ]
       },
       "UserLogin": {
         "properties": {
@@ -2979,13 +3146,6 @@
           "type": {
             "type": "string",
             "title": "Error Type"
-          },
-          "input": {
-            "title": "Input"
-          },
-          "ctx": {
-            "type": "object",
-            "title": "Context"
           }
         },
         "type": "object",

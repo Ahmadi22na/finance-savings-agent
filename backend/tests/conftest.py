@@ -50,6 +50,34 @@ def clean_tables():
     yield
 
 
+@pytest.fixture(autouse=True)
+def isolate_from_real_ai(monkeypatch):
+    """
+    عزل كل الاختبارات عن الذكاء الاصطناعي الحقيقي، بغض النظر عن ملف .env عندك.
+
+    المشكلة: لو GEMINI_API_KEY مضبوط بـ .env، مصنّف النص بيصير Gemini الحقيقي، فالاختبارات بتستدعي الإنترنت
+    وبتستهلك من حصتك وبتطلع نتائجها غير ثابتة. وكمان AI_PROVIDER=demo (من دليل العرض) كان ممكن يغيّر نتائج الاختبارات.
+    هون بنفرض: بدون مفتاح، ومزوّد gemini. أي اختبار بده مزوّد، بيحقنه صراحة (Fake)، ولو نسي بيفشل بوضوح
+    بدل ما يتصل بجوجل.
+    """
+    from app.agent.providers import factory as provider_factory
+    from app.config import settings
+    from app.services.categorizer import factory as categorizer_factory
+
+    def clear_caches():
+        # بعض الاختبارات بتستبدل الدالة بـ lambda (monkeypatch)، وهاي ما إلها cache_clear — منتجاهلها
+        for function in (provider_factory.get_ai_provider, categorizer_factory.get_categorizer):
+            clear = getattr(function, "cache_clear", None)
+            if clear is not None:
+                clear()
+
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    clear_caches()
+    yield
+    clear_caches()
+
+
 @pytest.fixture
 def client():
     return TestClient(app)

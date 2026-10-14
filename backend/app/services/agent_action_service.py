@@ -21,7 +21,7 @@ from app.core.log_safety import describe_text, safe_error
 from app.agent.mood_engine import compute_mood_state, MoodState
 from app.agent.providers.factory import get_ai_provider
 from app.models.agent import AgentAction, AgentActionType, AgentActionStatus
-from app.models.transaction import Transaction, TransactionType, TransactionSource
+from app.models.transaction import CategoryOrigin, Transaction, TransactionType, TransactionSource
 from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
@@ -165,6 +165,8 @@ def _apply_category_correction(db: Session, user: User, action: AgentAction) -> 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المعاملة الأصلية غير موجودة")
 
     transaction.category_id = new_category_id
+    transaction.category_origin = CategoryOrigin.USER  # المستخدم وافق صراحة على الاقتراح
+    transaction.category_confidence = None
 
 
 def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> None:

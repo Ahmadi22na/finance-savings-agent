@@ -7,6 +7,7 @@ import '../../core/agent_action_providers.dart';
 import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
+import '../../widgets/transaction_category_sheet.dart';
 import '../../widgets/transaction_tile.dart';
 import '../account/account_screen.dart';
 import '../quick_log/quick_log_screen.dart';
@@ -144,7 +145,10 @@ class DashboardScreen extends ConsumerWidget {
                 }
                 return Column(
                   children: transactions
-                      .map((t) => TransactionTile(transaction: t))
+                      .map((t) => TransactionTile(
+                            transaction: t,
+                            onTap: () => showTransactionCategorySheet(context, t),
+                          ))
                       .toList(),
                 );
               },

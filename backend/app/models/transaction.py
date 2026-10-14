@@ -26,6 +26,17 @@ class TransactionSource(str, enum.Enum):
     OPEN_BANKING = "open_banking"  # محجوز للمستقبل
 
 
+class CategoryOrigin(str, enum.Enum):
+    """
+    مين حدّد تصنيف المعاملة:
+    USER = المستخدم اختاره أو صحّحه (أو وافق على اقتراح رشيد)
+    AUTO = التطبيق خمّنه تلقائيًا (قواعد/Gemini) ولسا المستخدم ما راجعه — بيظهر بشارة + درجة الثقة
+    NULL = غير معروف (معاملة قديمة) أو بدون تصنيف
+    """
+    USER = "user"
+    AUTO = "auto"
+
+
 class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transactions"
 
@@ -44,6 +55,11 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     type: Mapped[TransactionType] = mapped_column(SAEnum(TransactionType, name="transaction_type_enum"))
     source: Mapped[TransactionSource] = mapped_column(SAEnum(TransactionSource, name="transaction_source_enum"))
+
+    category_origin: Mapped[CategoryOrigin | None] = mapped_column(
+        SAEnum(CategoryOrigin, name="category_origin_enum"), nullable=True
+    )
+    category_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
 
     note: Mapped[str | None] = mapped_column(nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

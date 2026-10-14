@@ -41,7 +41,7 @@ from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.income_allocation import IncomeAllocation
 from app.models.persona import Persona
-from app.models.transaction import Transaction, TransactionSource, TransactionType
+from app.models.transaction import CategoryOrigin, Transaction, TransactionSource, TransactionType
 from app.models.user import IncomeType, User
 
 DEMO_NAME = "سامر (ديمو)"
@@ -159,9 +159,17 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
     transactions: list[Transaction] = []
     incomes: list[Transaction] = []
 
+    origin_rng = random.Random(23)  # منفصل عن rng الرئيسي: ما بيغيّر البيانات المولّدة (المزاج والاختبارات)
+
     def add_tx(kind, category, amount, note, when, source=TransactionSource.MANUAL, raw=None, ref=None):
+        origin, confidence = None, None
+        if category is not None:
+            auto = source in (TransactionSource.OCR, TransactionSource.SMS) or origin_rng.random() < 0.25
+            origin = CategoryOrigin.AUTO if auto else CategoryOrigin.USER
+            confidence = round(origin_rng.uniform(0.7, 0.95), 2) if auto else None
         tx = Transaction(
             id=uuid.uuid4(), user_id=user.id, category_id=category.id if category else None,
+            category_origin=origin, category_confidence=confidence,
             amount=amount, type=kind, source=source, note=note, occurred_at=when,
             raw_source_data=raw, external_ref=ref, created_at=when,
         )

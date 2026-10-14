@@ -8,9 +8,11 @@ from app.api.docs import (
 )
 from app.core.dependencies import get_current_user
 from app.database.session import get_db
+from app.models.transaction import CategoryOrigin
 from app.models.user import User
 from app.schemas.transaction import (
     TransactionQuickLogCreate,
+    TransactionUpdate,
     TransactionOut,
     IncomeAllocationRequest,
     IncomeAllocationResult,
@@ -31,8 +33,15 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"], responses=UNAU
 MAX_RECEIPT_IMAGE_BYTES = 10 * 1024 * 1024  # 10 ميغا — كافي جدًا لصورة فاتورة بجودة عادية
 
 
+def _apply_origin_flags(item: TransactionOut) -> TransactionOut:
+    """ai_suggested/suggestion_confidence صارت مشتقة من الحقول المحفوظة (بتبقى صح بالقوائم مش بس عند الإنشاء)."""
+    item.ai_suggested = item.category_origin == CategoryOrigin.AUTO
+    item.suggestion_confidence = item.category_confidence if item.ai_suggested else None
+    return item
+
+
 def _to_transaction_out(db: Session, transaction) -> TransactionOut:
-    result = TransactionOut.model_validate(transaction)
+    result = _apply_origin_flags(TransactionOut.model_validate(transaction))
     result.unallocated_amount = income_allocation_service.get_unallocated_amount(db, transaction)
     return result
 
@@ -68,6 +77,30 @@ def quick_log_transaction(
     return result
 
 
+@router.patch(
+    "/{transaction_id}",
+    response_model=TransactionOut,
+    summary="تعديل تصنيف معاملة",
+    description=(
+        "يغيّر تصنيف معاملة المستخدم (أو يزيله بإرسال `category_id: null`). بعد التعديل يصبح "
+        "`category_origin = user` وتُمسح درجة الثقة التلقائية، فتختفي شارة «تصنيف تلقائي» من الواجهة. "
+        "التصنيف لازم يكون افتراضيًا أو خاصًا بالمستخدم، ويناسب نوع المعاملة (دخل أو مصروف)."
+    ),
+    responses=responses(
+        bad_request("التصنيف غير موجود (أو ليس للمستخدم)، أو لا يناسب نوع المعاملة."),
+        not_found("المعاملة غير موجودة."),
+    ),
+)
+def update_transaction(
+    transaction_id: uuid.UUID,
+    data: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transaction = transaction_service.update_transaction_category(db, current_user, transaction_id, data.category_id)
+    return _to_transaction_out(db, transaction)
+
+
 @router.get(
     "",
     response_model=list[TransactionOut],
@@ -87,7 +120,7 @@ def list_transactions(
     unallocated = income_allocation_service.unallocated_amounts_for(db, transactions)
     results = []
     for transaction in transactions:
-        item = TransactionOut.model_validate(transaction)
+        item = _apply_origin_flags(TransactionOut.model_validate(transaction))
         item.unallocated_amount = unallocated.get(transaction.id, 0.0)
         results.append(item)
     return results

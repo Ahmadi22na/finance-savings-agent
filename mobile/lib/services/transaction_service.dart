@@ -32,6 +32,7 @@ class TransactionService {
     required String type,
     String? categoryId,
     String? note,
+    String source = 'manual',
   }) async {
     try {
       final response = await _apiClient.dio.post('/transactions/quick-log', data: {
@@ -39,6 +40,19 @@ class TransactionService {
         'type': type,
         if (categoryId != null) 'category_id': categoryId,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        if (source != 'manual') 'source': source,
+      });
+      return Transaction.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// تعديل تصنيف معاملة (categoryId = null بيزيل التصنيف). بعد التعديل بيصير التصنيف "من المستخدم".
+  Future<Transaction> updateCategory(String transactionId, String? categoryId) async {
+    try {
+      final response = await _apiClient.dio.patch('/transactions/$transactionId', data: {
+        'category_id': categoryId,
       });
       return Transaction.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

@@ -1,0 +1,151 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/api_client.dart';
+import '../core/dashboard_providers.dart';
+import '../core/providers.dart';
+import '../models/category.dart';
+import '../models/transaction.dart';
+import '../theme/icon_mapper.dart';
+import 'transaction_tile.dart';
+
+/// ورقة سفلية لتعديل تصنيف معاملة: بتعرض التصنيفات المناسبة لنوعها، وبعد الاختيار بيتحفظ التعديل
+/// بالسيرفر وبتتحدّث القائمة. (بعد التعديل بتختفي شارة "تصنيف تلقائي" لأنه صار قرار المستخدم.)
+Future<void> showTransactionCategorySheet(BuildContext context, Transaction transaction) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => _TransactionCategorySheet(transaction: transaction),
+  );
+}
+
+class _TransactionCategorySheet extends ConsumerStatefulWidget {
+  final Transaction transaction;
+
+  const _TransactionCategorySheet({required this.transaction});
+
+  @override
+  ConsumerState<_TransactionCategorySheet> createState() => _TransactionCategorySheetState();
+}
+
+class _TransactionCategorySheetState extends ConsumerState<_TransactionCategorySheet> {
+  bool _isSaving = false;
+
+  Future<void> _save(String? categoryId) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(transactionServiceProvider).updateCategory(widget.transaction.id, categoryId);
+      ref.invalidate(recentTransactionsProvider);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('تم تعديل التصنيف ✅')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('ما قدرنا نحفظ التعديل، جرب كمان شوي')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final transaction = widget.transaction;
+    final categoriesAsync = ref.watch(categoriesListProvider);
+    final isAuto = transaction.categoryOrigin == 'auto';
+    final confidence = transaction.categoryConfidence;
+    final typeLabel = transaction.type == 'income' ? 'دخل' : 'مصروف';
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('تعديل التصنيف', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Text(
+              '$typeLabel ${transaction.amount.toStringAsFixed(2)} دينار · '
+              '${TransactionTile.sourceLabel(transaction.source)}',
+              style: const TextStyle(color: Colors.black54, fontSize: 13),
+            ),
+            if (isAuto) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.auto_awesome, size: 16, color: Colors.amber.shade900),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        confidence != null
+                            ? 'صنّفها رشيد تلقائيًا بثقة ${(confidence * 100).round()}%. إذا مش صح، اختار التصنيف الصحيح.'
+                            : 'صنّفها رشيد تلقائيًا. إذا مش صح، اختار التصنيف الصحيح.',
+                        style: const TextStyle(fontSize: 12, height: 1.4),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            categoriesAsync.when(
+              loading: () => const Center(
+                child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
+              ),
+              error: (_, __) => const Text('ما قدرنا نحمّل التصنيفات، جرب كمان شوي'),
+              data: (all) => _buildChoices(all),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChoices(List<Category> all) {
+    final transaction = widget.transaction;
+    final suitable = all
+        .where((c) => c.categoryType == 'both' || c.categoryType == transaction.type)
+        .toList();
+    final currentId = transaction.category?.id;
+
+    return Flexible(
+      child: SingleChildScrollView(
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final category in suitable)
+              ChoiceChip(
+                avatar: Icon(iconForKey(category.icon), size: 16),
+                label: Text(category.name),
+                selected: category.id == currentId,
+                onSelected: _isSaving ? null : (_) => _save(category.id),
+              ),
+            if (currentId != null)
+              ActionChip(
+                avatar: const Icon(Icons.label_off_outlined, size: 16),
+                label: const Text('بدون تصنيف'),
+                onPressed: _isSaving ? null : () => _save(null),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

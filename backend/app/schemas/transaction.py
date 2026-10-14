@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.transaction import TransactionType, TransactionSource
+from app.models.transaction import CategoryOrigin, TransactionType, TransactionSource
 from app.schemas.category import CategoryOut
 from app.schemas.goal import GoalOut
 
@@ -24,12 +25,20 @@ class TransactionQuickLogCreate(BaseModel):
         description="ملاحظة نصية؛ بدون `category_id` تُستخدم لتخمين التصنيف تلقائيًا",
     )
     occurred_at: datetime | None = Field(default=None, description="وقت المعاملة؛ لو ما تحدد، بنعتبره الآن")
+    source: Literal["manual", "ocr", "sms"] = Field(
+        default="manual",
+        description=(
+            "من وين إجت البيانات: `manual` إدخال يدوي، `ocr` مسودة من صورة فاتورة راجعها المستخدم، "
+            "`sms` مسودة من رسالة بنكية ملصوقة. للعرض والإحصاء فقط (استيراد الرسائل التلقائي بيحدد مصدره بنفسه)."
+        ),
+    )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {"amount": 4.5, "type": "expense", "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"},
                 {"amount": 12, "type": "expense", "note": "غدا مع الشباب"},
+                {"amount": 12.5, "type": "expense", "note": "سوبرماركت", "source": "ocr"},
             ]
         }
     }
@@ -54,6 +63,12 @@ class TransactionOut(BaseModel):
     ai_suggested: bool = False
     suggestion_confidence: float | None = None
 
+    # من حدّد التصنيف (محفوظ): `user` المستخدم، `auto` تخمين تلقائي لسا ما راجعه (ومعه درجة الثقة)، أو null
+    category_origin: CategoryOrigin | None = Field(
+        default=None, description="`user` اختاره/صحّحه المستخدم، `auto` خمّنه التطبيق، أو null (غير معروف/بدون تصنيف)"
+    )
+    category_confidence: float | None = Field(default=None, description="ثقة التصنيف التلقائي (0 إلى 1) عندما يكون `auto`")
+
     # بس لمعاملات الدخل: قديش لسا باقي من هالمبلغ ما اتوزع على أي خطة.
     # الموبايل يستخدمها يقرر يعرض شاشة "وين بدك تحط هالدخل؟" أو لأ.
     # دايمًا 0 لمعاملات المصروف (مفهوم التوزيع أصلاً خاص بالدخل بس).
@@ -77,6 +92,17 @@ class TransactionOut(BaseModel):
                 }
             ]
         },
+    }
+
+
+class TransactionUpdate(BaseModel):
+    """تعديل تصنيف معاملة. `null` = إزالة التصنيف."""
+    category_id: uuid.UUID | None = Field(description="التصنيف الجديد (من `GET /categories`)، أو null لإزالته")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"}, {"category_id": None}]
+        }
     }
 
 

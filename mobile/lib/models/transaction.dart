@@ -12,6 +12,8 @@ class Transaction {
   final bool aiSuggested;
   final double? suggestionConfidence;
   final double unallocatedAmount;
+  final String? categoryOrigin; // user | auto | null
+  final double? categoryConfidence; // 0..1 عندما يكون التصنيف تلقائيًا
 
   Transaction({
     required this.id,
@@ -24,6 +26,8 @@ class Transaction {
     required this.aiSuggested,
     required this.suggestionConfidence,
     required this.unallocatedAmount,
+    this.categoryOrigin,
+    this.categoryConfidence,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,8 @@ class Transaction {
       aiSuggested: json['ai_suggested'] as bool? ?? false,
       suggestionConfidence: (json['suggestion_confidence'] as num?)?.toDouble(),
       unallocatedAmount: (json['unallocated_amount'] as num?)?.toDouble() ?? 0,
+      categoryOrigin: json['category_origin'] as String?,
+      categoryConfidence: (json['category_confidence'] as num?)?.toDouble(),
     );
   }
 }
