@@ -11,6 +11,7 @@ from app.models.transaction import Transaction, TransactionType, TransactionSour
 from app.models.income_allocation import IncomeAllocation  # noqa: F401
 from app.models.ai_usage import AiUsageEvent, AiUsageKind  # noqa: F401
 from app.models.active_day import UserActiveDay  # noqa: F401
+from app.models.persona_feedback import PersonaFeedback  # noqa: F401
 from app.models.agent import (  # noqa: F401
     AgentInteraction,
     InteractionTrigger,

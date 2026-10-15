@@ -43,4 +43,44 @@ class OnboardingService {
       throw ApiException.fromDioError(e);
     }
   }
+
+  /// تبديل شخصية رشيد بأي وقت (للتجربة). بيغيّر أسلوب الحديث فقط، والأرقام المالية ما بتتأثر.
+  Future<AppUser> changePersona(String personaId) async {
+    try {
+      final response = await _apiClient.dio.patch('/users/me/persona', data: {
+        'persona_id': personaId,
+      });
+      return AppUser.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// تقييم مختصر (1-5 + وسوم جاهزة). إعادة الإرسال بتحدّث التقييم السابق لنفس الشخصية.
+  Future<void> submitPersonaFeedback({
+    required String personaId,
+    required int rating,
+    required List<String> tags,
+  }) async {
+    try {
+      await _apiClient.dio.put('/users/me/persona-feedback', data: {
+        'persona_id': personaId,
+        'rating': rating,
+        'tags': tags,
+      });
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// تقييماتي السابقة (عشان نعبّي النموذج لو المستخدم بده يعدّل تقييمه).
+  Future<List<Map<String, dynamic>>> myPersonaFeedback() async {
+    try {
+      final response = await _apiClient.dio.get('/users/me/persona-feedback');
+      final List data = response.data as List;
+      return data.map((item) => item as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
 }

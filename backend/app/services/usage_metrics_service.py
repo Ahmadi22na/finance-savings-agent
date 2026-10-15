@@ -16,11 +16,17 @@ from app.models.active_day import UserActiveDay
 from app.models.agent import AgentAction, AgentActionStatus, AgentInteraction
 from app.models.goal import Goal, GoalStatus
 from app.models.income_allocation import IncomeAllocation
+from app.models.persona import Persona
+from app.models.persona_feedback import PersonaFeedback
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.services.usage_service import local_day
 
 RETENTION_WINDOWS = (1, 7, 30)
+TAG_LABELS = {
+    "helpful": "مفيد", "friendly": "أسلوبه حلو", "motivating": "بيحمّس",
+    "too_long": "طويل زيادة", "too_pushy": "ضاغط زيادة", "confusing": "مش واضح",
+}
 SMALL_SAMPLE = 10
 
 
@@ -138,6 +144,26 @@ def build_report(db: Session, *, days: int = 30, now: datetime | None = None, ex
         "acceptance_rate_percent": _rate(applied, applied + rejected),
     }
 
+    # ---------------------------------------------------------- مقارنة الشخصيات (R13)
+    feedback_rows = [f for f in db.query(PersonaFeedback).all() if f.user_id in user_ids]
+    personas = []
+    for persona in db.query(Persona).order_by(Persona.created_at).all():
+        ratings = [f.rating for f in feedback_rows if f.persona_id == persona.id]
+        tag_counts: dict = {}
+        for f in feedback_rows:
+            if f.persona_id == persona.id:
+                for tag in f.tags or []:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        personas.append({
+            "key": persona.key,
+            "name": persona.display_name,
+            "users_now": sum(1 for u in users if u.persona_id == persona.id),
+            "ratings": len(ratings),
+            "avg_rating": round(statistics.mean(ratings), 2) if ratings else None,
+            "positive_percent": _rate(sum(1 for r in ratings if r >= 4), len(ratings)),
+            "top_tags": sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))[:3],
+        })
+
     return {
         "generated_at": now.isoformat(timespec="seconds"),
         "window_days": days,
@@ -150,6 +176,7 @@ def build_report(db: Session, *, days: int = 30, now: datetime | None = None, ex
         "engagement": engagement,
         "outcomes": outcomes,
         "agent": agent,
+        "personas": personas,
     }
 
 
@@ -236,6 +263,21 @@ def render_markdown(report: dict) -> str:
         f"- اقتراحات رشيد: **{agent['suggestions_total']}** (وافق **{agent['applied']}**، رفض **{agent['rejected']}**، "
         f"معلّق **{agent['pending']}**)",
         f"- نسبة القبول: **{_fmt(agent['acceptance_rate_percent'], '%')}**",
+        "",
+        "## 6. مقارنة شخصيات رشيد",
+        "",
+        "| الشخصية | مستخدمون حاليًا | عدد التقييمات | متوسط التقييم | 4-5 نجوم | أكثر الوسوم |",
+        "|---|---|---|---|---|---|",
+    ]
+    for persona in report["personas"]:
+        tags = "، ".join(f"{TAG_LABELS.get(tag, tag)} ({count})" for tag, count in persona["top_tags"]) or "—"
+        lines.append(
+            f"| {persona['name']} | {persona['users_now']} | {persona['ratings']} | "
+            f"{_fmt(persona['avg_rating'])} | {_fmt(persona['positive_percent'], '%')} | {tags} |"
+        )
+    lines += [
+        "",
+        "> التقييم ذاتي، وكل مستخدم بيقدر يبدّل ويقيّم أكتر من شخصية، والعينة غالبًا صغيرة. استخدمه كمؤشر أولي فقط.",
         "",
         "---",
         "تعريفات المقاييس وحدودها: `docs/METRICS.md`. التقرير تجميعي ولا يعرض أي مستخدم بشكل فردي.",

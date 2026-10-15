@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.persona import Persona
+from app.models.persona_feedback import PersonaFeedback
+from app.models.user import User
 
 
 def list_active_personas(db: Session) -> list[Persona]:
@@ -25,3 +27,44 @@ def get_persona_or_404(db: Session, persona_id: uuid.UUID) -> Persona:
     if persona is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الشخصية غير موجودة")
     return persona
+
+
+def change_persona(db: Session, user: User, persona_id) -> User:
+    """تبديل الشخصية للتجربة. بيغيّر persona_id فقط؛ الأهداف والمعاملات والمزاج ما بتتأثر (مستقلة عن الشخصية)."""
+    persona = get_persona_or_404(db, persona_id)  # لازم موجودة ومفعّلة
+    user.persona_id = persona.id
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def upsert_feedback(db: Session, user: User, persona_id, rating: int, tags: list[str]) -> PersonaFeedback:
+    """تقييم واحد لكل (مستخدم، شخصية): إعادة التقييم بتحدّث نفس السطر. الشخصية لازم تكون موجودة (حتى لو موقوفة)."""
+    persona = db.get(Persona, persona_id)
+    if persona is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الشخصية غير موجودة")
+
+    unique_tags = sorted(set(tags))
+    feedback = (
+        db.query(PersonaFeedback)
+        .filter(PersonaFeedback.user_id == user.id, PersonaFeedback.persona_id == persona.id)
+        .first()
+    )
+    if feedback is None:
+        feedback = PersonaFeedback(user_id=user.id, persona_id=persona.id, rating=rating, tags=unique_tags)
+        db.add(feedback)
+    else:
+        feedback.rating = rating
+        feedback.tags = unique_tags
+    db.commit()
+    db.refresh(feedback)
+    return feedback
+
+
+def list_feedback_for_user(db: Session, user: User) -> list[PersonaFeedback]:
+    return (
+        db.query(PersonaFeedback)
+        .filter(PersonaFeedback.user_id == user.id)
+        .order_by(PersonaFeedback.updated_at.desc())
+        .all()
+    )

@@ -17,6 +17,7 @@ from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
 from app.models.goal import Goal
 from app.models.income_allocation import IncomeAllocation
+from app.models.persona_feedback import PersonaFeedback
 from app.models.transaction import Transaction
 from app.models.user import User
 
@@ -41,6 +42,7 @@ def delete_account(db: Session, user: User, password: str) -> None:
         db.query(AgentInteraction).filter(AgentInteraction.user_id == user_id).delete(synchronize_session=False)
         db.query(AiUsageEvent).filter(AiUsageEvent.user_id == user_id).delete(synchronize_session=False)
         db.query(UserActiveDay).filter(UserActiveDay.user_id == user_id).delete(synchronize_session=False)
+        db.query(PersonaFeedback).filter(PersonaFeedback.user_id == user_id).delete(synchronize_session=False)
         db.query(Transaction).filter(Transaction.user_id == user_id).delete(synchronize_session=False)
         db.query(Goal).filter(Goal.user_id == user_id).delete(synchronize_session=False)
         db.query(Category).filter(Category.user_id == user_id).delete(synchronize_session=False)  # التصنيفات الخاصة فقط

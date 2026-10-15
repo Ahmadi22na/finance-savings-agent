@@ -38,6 +38,7 @@ from app.models.agent import (
 from app.models.active_day import UserActiveDay
 from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
+from app.models.persona_feedback import PersonaFeedback
 from app.models.goal import Goal, GoalStatus
 from app.models.income_allocation import IncomeAllocation
 from app.models.persona import Persona
@@ -115,6 +116,7 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
             )
         db.query(UserActiveDay).filter(UserActiveDay.user_id == old.id).delete(synchronize_session=False)
         db.query(AiUsageEvent).filter(AiUsageEvent.user_id == old.id).delete(synchronize_session=False)
+        db.query(PersonaFeedback).filter(PersonaFeedback.user_id == old.id).delete(synchronize_session=False)
         db.delete(old)
         db.commit()
 

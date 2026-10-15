@@ -205,6 +205,179 @@
         ]
       }
     },
+    "/api/v1/users/me/persona": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "تبديل شخصية رشيد",
+        "description": "يبدّل شخصية رشيد في أي وقت (لتجربة الشخصيات الثلاث). يغيّر أسلوب حديث رشيد فقط: الأهداف والمعاملات وتوزيعات الدخل وحالة رشيد المزاجية تبقى كما هي لأنها مستقلة عن الشخصية. الشخصية لازم تكون مفعّلة.",
+        "operationId": "change_my_persona_api_v1_users_me_persona_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الشخصية غير موجودة أو غير مفعّلة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me/persona-feedback": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "تقييماتي لشخصيات رشيد",
+        "description": "يرجّع تقييمات المستخدم الحالي فقط (الأحدث أولًا)، ليعرض التطبيق التقييم السابق عند إعادة التقييم.",
+        "operationId": "my_persona_feedback_api_v1_users_me_persona_feedback_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PersonaFeedbackOut"
+                  },
+                  "type": "array",
+                  "title": "Response My Persona Feedback Api V1 Users Me Persona Feedback Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "تقييم شخصية رشيد",
+        "description": "تقييم مختصر (1-5 نجوم + وسوم جاهزة، بدون نص حر) لشخصية من شخصيات رشيد. تقييم واحد لكل شخصية: إعادة الإرسال تحدّث التقييم السابق. يُستخدم لمعرفة إن كان اختلاف الشخصيات يضيف قيمة فعلية.",
+        "operationId": "rate_persona_api_v1_users_me_persona_feedback_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaFeedbackUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaFeedbackOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الشخصية غير موجودة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/categories": {
       "get": {
         "tags": [
@@ -2388,6 +2561,121 @@
           {}
         ]
       },
+      "PersonaChange": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id",
+            "description": "معرّف الشخصية الجديدة من `GET /personas`"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id"
+        ],
+        "title": "PersonaChange",
+        "description": "تبديل شخصية رشيد (للتجربة). ما بيغيّر أي بيانات مالية: بس أسلوب حديث رشيد.",
+        "examples": [
+          {
+            "persona_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          }
+        ]
+      },
+      "PersonaFeedbackOut": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id"
+          },
+          "rating": {
+            "type": "integer",
+            "title": "Rating"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id",
+          "rating",
+          "tags",
+          "updated_at"
+        ],
+        "title": "PersonaFeedbackOut",
+        "examples": [
+          {
+            "persona_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "rating": 4,
+            "tags": [
+              "friendly",
+              "motivating"
+            ],
+            "updated_at": "2026-10-16T10:00:00Z"
+          }
+        ]
+      },
+      "PersonaFeedbackUpsert": {
+        "properties": {
+          "persona_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Persona Id",
+            "description": "الشخصية المُقيَّمة"
+          },
+          "rating": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "description": "من 1 (سيئ) إلى 5 (ممتاز)"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "helpful",
+                "friendly",
+                "motivating",
+                "too_long",
+                "too_pushy",
+                "confusing"
+              ]
+            },
+            "type": "array",
+            "maxItems": 6,
+            "title": "Tags",
+            "description": "وسوم اختيارية جاهزة: `helpful` `friendly` `motivating` `too_long` `too_pushy` `confusing`"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_id",
+          "rating"
+        ],
+        "title": "PersonaFeedbackUpsert",
+        "examples": [
+          {
+            "persona_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+            "rating": 4,
+            "tags": [
+              "friendly",
+              "motivating"
+            ]
+          }
+        ]
+      },
       "PersonaOut": {
         "properties": {
           "id": {
@@ -3192,7 +3480,7 @@
     },
     {
       "name": "Users",
-      "description": "بيانات المستخدم الحالي، وحذف الحساب مع كل بياناته."
+      "description": "بيانات المستخدم الحالي، تبديل وتقييم شخصية رشيد، وحذف الحساب مع كل بياناته."
     },
     {
       "name": "Onboarding",
