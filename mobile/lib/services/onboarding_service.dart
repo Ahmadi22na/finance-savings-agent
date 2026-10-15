@@ -23,18 +23,20 @@ class OnboardingService {
   Future<AppUser> completeOnboarding({
     required String incomeType,
     required String personaId,
-    required String goalTitle,
-    required double goalTargetAmount,
+    String? goalTitle, // الهدف الأول اختياري: العنوان والمبلغ مع بعض أو ولا واحد منهم
+    double? goalTargetAmount,
     DateTime? goalDeadline,
   }) async {
     try {
       final response = await _apiClient.dio.post('/onboarding/complete', data: {
         'income_type': incomeType,
         'persona_id': personaId,
-        'goal_title': goalTitle,
-        'goal_target_amount': goalTargetAmount,
-        if (goalDeadline != null)
-          'goal_deadline': goalDeadline.toIso8601String().split('T').first,
+        if (goalTitle != null && goalTargetAmount != null) ...{
+          'goal_title': goalTitle,
+          'goal_target_amount': goalTargetAmount,
+          if (goalDeadline != null)
+            'goal_deadline': goalDeadline.toIso8601String().split('T').first,
+        },
       });
       return AppUser.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

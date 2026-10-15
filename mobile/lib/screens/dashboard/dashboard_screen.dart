@@ -24,6 +24,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final transactionsAsync = ref.watch(recentTransactionsProvider);
+    final goalsAsync = ref.watch(goalsListProvider);
     final pendingActionsAsync = ref.watch(pendingActionsProvider);
     final pendingCount = pendingActionsAsync.value?.length ?? 0;
     final accentColor =
@@ -96,6 +97,10 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
+            if (goalsAsync.value?.isEmpty == true && transactionsAsync.value?.isEmpty == true) ...[
+              _FirstRunCard(accentColor: accentColor),
+              const SizedBox(height: 20),
+            ],
             Row(
               children: [
                 const Expanded(
@@ -163,9 +168,51 @@ class DashboardScreen extends ConsumerWidget {
 
 
 
-///
+/// بطاقة أول استخدام: لما ما في أهداف ولا معاملات، بنعطي المستخدم خطوتين واضحتين للوصول للقيمة بسرعة.
+class _FirstRunCard extends StatelessWidget {
+  final Color accentColor;
+  const _FirstRunCard({required this.accentColor});
 
-
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('أهلين فيك! خلّينا نبلش 👋', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          const Text(
+            'خطوة وحدة بتخلّي رشيد يفهم وضعك، وبتقدر تعمل الثانية بأي وقت:',
+            style: TextStyle(color: Colors.black54, fontSize: 13),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: accentColor),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const QuickLogScreen()),
+            ),
+            icon: const Icon(Icons.add),
+            label: const Text('سجّل أول مصروف أو دخل'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AddGoalScreen()),
+            ),
+            icon: const Icon(Icons.flag_outlined),
+            label: const Text('حدّد أول هدف'),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _GoalsSection extends ConsumerStatefulWidget {
   final Color accentColor;

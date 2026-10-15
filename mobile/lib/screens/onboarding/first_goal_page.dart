@@ -19,11 +19,11 @@ class FirstGoalPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('شو أول هدف بدك توفر إله؟',
+          const Text('عندك هدف بدك توفر إله؟',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          const Text('تقدر تضيف أهداف تانية لاحقًا بأي وقت',
+          const Text('اختياري: تقدر تتخطّى هالخطوة وتضيف هدفك لاحقًا بأي وقت',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black54)),
           const SizedBox(height: 32),

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/api_client.dart';
+import '../../core/onboarding_providers.dart';
 import '../../models/persona.dart';
 import '../dashboard/dashboard_screen.dart';
 import 'persona_select_page.dart';
-import 'income_type_page.dart';
 import 'first_goal_page.dart';
 
 class OnboardingFlowScreen extends ConsumerStatefulWidget {
@@ -22,17 +22,19 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
   bool _isSubmitting = false;
 
   Persona? _selectedPersona;
-  String? _selectedIncomeType;
+  String _selectedIncomeType = 'variable'; // الافتراضي: جمهورنا دخله غير منتظم
   final _goalTitleController = TextEditingController();
   final _goalAmountController = TextEditingController();
 
-  static const int _totalPages = 3;
+  // خطوتين فقط: (1) الشخصية + نوع الدخل (مختارين مسبقًا)، (2) هدف اختياري. المستخدم ممكن يوصل بدون أي إدخال.
+  static const int _totalPages = 2;
 
   @override
   void initState() {
     super.initState();
-
-
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _preselectDefaultPersona(ref.read(personasListProvider));
+    });
 
     _goalTitleController.addListener(() => setState(() {}));
     _goalAmountController.addListener(() => setState(() {}));
@@ -48,16 +50,30 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
 
 
+  /// اختيار الشخصية الافتراضية أول ما تنحمّل القائمة، عشان زر "التالي" يشتغل فورًا.
+  void _preselectDefaultPersona(AsyncValue<List<Persona>> personasAsync) {
+    final personas = personasAsync.value;
+    if (_selectedPersona != null || personas == null || personas.isEmpty) return;
+    final defaultPersona = personas.firstWhere((p) => p.key == 'energetic', orElse: () => personas.first);
+    setState(() => _selectedPersona = defaultPersona);
+  }
+
+  bool get _hasGoalInput =>
+      _goalTitleController.text.trim().isNotEmpty || _goalAmountController.text.trim().isNotEmpty;
+
+  bool get _goalIsValid {
+    final title = _goalTitleController.text.trim();
+    final amount = double.tryParse(_goalAmountController.text.trim());
+    return title.length >= 2 && amount != null && amount > 0;
+  }
+
   bool get _canProceed {
     switch (_currentPage) {
       case 0:
         return _selectedPersona != null;
       case 1:
-        return _selectedIncomeType != null;
-      case 2:
-        final title = _goalTitleController.text.trim();
-        final amount = double.tryParse(_goalAmountController.text.trim());
-        return title.length >= 2 && amount != null && amount > 0;
+        // الهدف اختياري: فاضي = تخطّي، وإذا انكتب شي لازم يكتمل (عنوان + مبلغ صحيح)
+        return !_hasGoalInput || _goalIsValid;
       default:
         return false;
     }
@@ -88,10 +104,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
     try {
       final onboardingService = ref.read(onboardingServiceProvider);
       final updatedUser = await onboardingService.completeOnboarding(
-        incomeType: _selectedIncomeType!,
+        incomeType: _selectedIncomeType,
         personaId: _selectedPersona!.id,
-        goalTitle: _goalTitleController.text.trim(),
-        goalTargetAmount: double.parse(_goalAmountController.text.trim()),
+        goalTitle: _goalIsValid ? _goalTitleController.text.trim() : null,
+        goalTargetAmount: _goalIsValid ? double.parse(_goalAmountController.text.trim()) : null,
       );
 
       ref.read(currentUserProvider.notifier).state = updatedUser;
@@ -111,6 +127,11 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<Persona>>>(
+      personasListProvider,
+      (previous, next) => _preselectDefaultPersona(next),
+    );
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -144,10 +165,8 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                   PersonaSelectPage(
                     selectedPersona: _selectedPersona,
                     onSelect: (persona) => setState(() => _selectedPersona = persona),
-                  ),
-                  IncomeTypePage(
-                    selectedType: _selectedIncomeType,
-                    onSelect: (type) => setState(() => _selectedIncomeType = type),
+                    selectedIncomeType: _selectedIncomeType,
+                    onSelectIncomeType: (type) => setState(() => _selectedIncomeType = type),
                   ),
                   FirstGoalPage(
                     titleController: _goalTitleController,
@@ -177,7 +196,9 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                               height: 20, width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : Text(_currentPage == _totalPages - 1 ? 'يلا نبدأ' : 'التالي'),
+                          : Text(_currentPage == _totalPages - 1
+                              ? (_hasGoalInput ? 'يلا نبدأ' : 'ابدأ بدون هدف')
+                              : 'التالي'),
                     ),
                   ),
                 ],
