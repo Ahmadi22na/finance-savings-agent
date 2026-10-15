@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     # اتركه فاضي لتعطيل الميزة. لازم يكون اسم موديل مدعوم فعلاً على حسابك (شوفه من AI Studio).
     AGENT_FALLBACK_MODEL: str = ""
     AGENT_DEFAULT_NAME: str = "رشيد"
+    # الشخصية الافتراضية لو المستخدم تخطّى اختيارها بالـ Onboarding (لازم تكون key شخصية موجودة ومفعّلة)
+    DEFAULT_PERSONA_KEY: str = "energetic"
 
     # مزوّد الذكاء الاصطناعي: gemini (الحقيقي) أو demo (ردود جاهزة بدون إنترنت لعرض المشروع). أي قيمة غيرهم = خطأ عند الإقلاع.
     AI_PROVIDER: Literal["gemini", "demo"] = "gemini"

@@ -1223,7 +1223,7 @@
           "Onboarding"
         ],
         "summary": "إتمام الـ Onboarding",
-        "description": "يستقبل مخرجات شاشات الإعداد بطلب واحد: نوع الدخل، الشخصية المختارة، وأول هدف مالي. يحفظ الشخصية وينشئ الهدف ويعلّم الحساب بأنه أكمل الإعداد. يُنفَّذ مرة واحدة فقط لكل حساب.",
+        "description": "يعلّم الحساب بأنه أكمل الإعداد، وكل الحقول اختيارية عشان المستخدم يوصل للتطبيق بسرعة: بدون شخصية بتنختار الشخصية الافتراضية، وبدون نوع دخل بنفترض `variable`، والهدف الأول اختياري (لو انبعت لازم العنوان والمبلغ مع بعض). طلب فاضي `{}` صالح. يُنفَّذ مرة واحدة فقط لكل حساب.",
         "operationId": "complete_onboarding_api_v1_onboarding_complete_post",
         "requestBody": {
           "content": {
@@ -1257,7 +1257,7 @@
             }
           },
           "400": {
-            "description": "المستخدم أكمل الـ Onboarding سابقًا.",
+            "description": "المستخدم أكمل الـ Onboarding سابقًا، أو ما في أي شخصية متاحة.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2318,26 +2318,48 @@
         "properties": {
           "income_type": {
             "$ref": "#/components/schemas/IncomeType",
-            "description": "`fixed` أو `variable`"
+            "description": "`fixed` أو `variable` (الافتراضي `variable`)",
+            "default": "variable"
           },
           "persona_id": {
-            "type": "string",
-            "format": "uuid",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Persona Id",
-            "description": "معرّف الشخصية من `GET /personas`"
+            "description": "معرّف الشخصية من `GET /personas`؛ لو ما انبعت بتنختار الشخصية الافتراضية"
           },
           "goal_title": {
-            "type": "string",
-            "maxLength": 150,
-            "minLength": 2,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 150,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Goal Title",
-            "description": "عنوان أول هدف"
+            "description": "عنوان أول هدف (اختياري)"
           },
           "goal_target_amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Goal Target Amount",
-            "description": "المبلغ المستهدف لأول هدف (دينار)"
+            "description": "المبلغ المستهدف لأول هدف بالدينار (مع `goal_title` أو بدونهم كلاهما)"
           },
           "goal_deadline": {
             "anyOf": [
@@ -2350,25 +2372,20 @@
               }
             ],
             "title": "Goal Deadline",
-            "description": "موعد نهائي اختياري"
+            "description": "موعد نهائي اختياري (يحتاج هدف)"
           }
         },
         "type": "object",
-        "required": [
-          "income_type",
-          "persona_id",
-          "goal_title",
-          "goal_target_amount"
-        ],
         "title": "OnboardingComplete",
-        "description": "يستقبل كل مخرجات شاشات الـ Onboarding الأربع بطلب واحد:\nنوع الدخل، الشخصية المختارة، وأول هدف مالي.",
+        "description": "مخرجات الـ Onboarding بطلب واحد. **كل الحقول اختيارية** عشان المستخدم يوصل للتطبيق بأسرع وقت:\n- بدون `persona_id` بنختار الشخصية الافتراضية.\n- بدون `income_type` بنفترض `variable` (جمهورنا: دخل غير منتظم).\n- الهدف الأول اختياري، بس لو انبعت لازم ينبعت `goal_title` و`goal_target_amount` مع بعض.",
         "examples": [
           {
             "goal_target_amount": 1000,
             "goal_title": "صندوق الطوارئ",
             "income_type": "variable",
             "persona_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-          }
+          },
+          {}
         ]
       },
       "PersonaOut": {
