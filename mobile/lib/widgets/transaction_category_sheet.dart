@@ -8,6 +8,7 @@ import '../models/category.dart';
 import '../models/transaction.dart';
 import '../theme/icon_mapper.dart';
 import 'transaction_tile.dart';
+import '../theme/app_theme.dart';
 
 /// ورقة سفلية لتعديل تصنيف معاملة: بتعرض التصنيفات المناسبة لنوعها، وبعد الاختيار بيتحفظ التعديل
 /// بالسيرفر وبتتحدّث القائمة. (بعد التعديل بتختفي شارة "تصنيف تلقائي" لأنه صار قرار المستخدم.)
@@ -76,7 +77,7 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
             Text(
               '$typeLabel ${transaction.amount.toStringAsFixed(2)} دينار · '
               '${TransactionTile.sourceLabel(transaction.source)}',
-              style: const TextStyle(color: Colors.black54, fontSize: 13),
+              style: const TextStyle(color: AppColors.secondaryText, fontSize: 13),
             ),
             if (isAuto) ...[
               const SizedBox(height: 10),
@@ -89,7 +90,7 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.auto_awesome, size: 16, color: Colors.amber.shade900),
+                    const Icon(Icons.auto_awesome, size: 16, color: TransactionTile.autoBadgeForeground),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

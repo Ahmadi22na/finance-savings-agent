@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'theme/app_theme.dart';
@@ -25,6 +26,9 @@ class RasheedApp extends StatelessWidget {
       theme: AppTheme.light(),
 
       locale: const Locale('ar'),
+      // نصوص النظام (أزرار الرجوع، نسخ/لصق، إعادة ترتيب القوائم...) وقارئ الشاشة بالعربي، واتجاه RTL تلقائي
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('ar')],
       builder: (context, child) {
         return Directionality(
           textDirection: TextDirection.rtl,

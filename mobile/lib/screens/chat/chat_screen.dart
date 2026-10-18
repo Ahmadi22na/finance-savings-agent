@@ -167,7 +167,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: personaImage != null
                   ? Padding(
                       padding: const EdgeInsets.all(3),
-                      child: Image.asset(personaImage, fit: BoxFit.contain),
+                      child: Image.asset(personaImage, fit: BoxFit.contain, excludeFromSemantics: true),
                     )
                   : Icon(Icons.savings, color: accentColor, size: 20),
             ),
@@ -179,7 +179,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Text(personaName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
                   _isSending ? 'عم يكتب...' : 'جاهز لمساعدتك',
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                  style: const TextStyle(fontSize: 12, color: AppColors.secondaryText),
                 ),
               ],
             ),
@@ -203,7 +203,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _textController,
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.start,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                       decoration: const InputDecoration(
@@ -318,7 +318,10 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (personaImagePath != null)
-              SizedBox(height: 120, child: Image.asset(personaImagePath!, fit: BoxFit.contain)),
+              SizedBox(
+                height: 120,
+                child: Image.asset(personaImagePath!, fit: BoxFit.contain, excludeFromSemantics: true),
+              ),
             const SizedBox(height: 12),
             Text(
               'ابدأ المحادثة مع $personaName 👋',
@@ -328,7 +331,7 @@ class _EmptyState extends StatelessWidget {
             const Text(
               'اسأله عن أهدافك أو مصاريفك، أو احكيله شو صار معك اليوم',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 13),
+              style: TextStyle(color: AppColors.secondaryText, fontSize: 13),
             ),
             const SizedBox(height: 18),
             Wrap(
@@ -366,7 +369,7 @@ class _MascotAvatar extends StatelessWidget {
       child: SizedBox(
         height: 36,
         width: 36,
-        child: Image.asset(imagePath, fit: BoxFit.contain),
+        child: Image.asset(imagePath, fit: BoxFit.contain, excludeFromSemantics: true),
       ),
     );
   }
@@ -530,25 +533,26 @@ class _ChatBubble extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text('💬 رشيد بادر بالحديث',
-                    style: TextStyle(fontSize: 10, color: isUser ? Colors.white70 : accentColor)),
+                    style: TextStyle(fontSize: 12, color: isUser ? Colors.white : accentColor)),
               ),
             Text(
               message.text,
               style: TextStyle(color: isUser ? Colors.white : Colors.black87, fontSize: 14),
             ),
             if (onToggleSpeak != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: InkWell(
-                  onTap: onToggleSpeak,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Icon(
-                      isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
-                      size: 18,
-                      color: isSpeaking ? accentColor : Colors.black38,
-                    ),
+              // زر بحجم لمس مناسب (40dp) + وصف لقارئ الشاشة (كان أيقونة 18px بدون وصف)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: IconButton(
+                  tooltip: isSpeaking ? 'أوقف الصوت' : 'اسمع الرد',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                  iconSize: 20,
+                  onPressed: onToggleSpeak,
+                  icon: Icon(
+                    isSpeaking ? Icons.stop_circle_outlined : Icons.volume_up_outlined,
+                    color: isSpeaking ? accentColor : AppColors.secondaryText,
                   ),
                 ),
               ),

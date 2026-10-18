@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 class PersonaColors {
   static const wise = Color(0xFF1B4332);
   static const business = Color(0xFF0B2545);
-  static const energetic = Color(0xFFE85D04);
+  // كان E85D04: تباينه مع النص الأبيض (أزرار وفقاعات المحادثة) أقل من 4.5:1 فبيفشل WCAG AA للنصوص الصغيرة.
+  // C2410C: نفس العائلة البرتقالية، وتباينه مع الأبيض ~5.2:1. (قرار تصميم: ارجع للقديم لو بدك، بس بيفشل الاختبار)
+  static const energetic = Color(0xFFC2410C);
 
 
 
@@ -26,6 +28,13 @@ class PersonaColors {
 
 
 
+/// ألوان ثابتة بتحقق تباين WCAG AA (≥ 4.5:1) على الأبيض وعلى خلفية التطبيق.
+/// كانت النصوص الثانوية بـ Colors.black54 (تباينها 4.3:1 فقط على خلفية التطبيق F7F7F5).
+class AppColors {
+  static const Color secondaryText = Color(0xFF616161);
+  static const Color scaffoldBackground = Color(0xFFF7F7F5);
+}
+
 class AppTheme {
   static ThemeData light() {
     return ThemeData(
@@ -35,7 +44,7 @@ class AppTheme {
         seedColor: PersonaColors.energetic,
         brightness: Brightness.light,
       ),
-      scaffoldBackgroundColor: const Color(0xFFF7F7F5),
+      scaffoldBackgroundColor: AppColors.scaffoldBackground,
       appBarTheme: const AppBarTheme(
         elevation: 0,
         centerTitle: true,

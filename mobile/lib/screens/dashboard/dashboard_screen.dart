@@ -37,17 +37,18 @@ class DashboardScreen extends ConsumerWidget {
           children: [
             if (user?.persona != null)
               Padding(
-                padding: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsetsDirectional.only(end: 8),
                 child: SizedBox(
                   height: 32,
-                  child: Image.asset(user!.persona!.imageAssetPath, fit: BoxFit.contain),
+                  child: Image.asset(user!.persona!.imageAssetPath, fit: BoxFit.contain, excludeFromSemantics: true),
                 ),
               ),
-            Text('أهلًا ${user?.name ?? ""}'),
+            Flexible(child: Text('أهلًا ${user?.name ?? ""}', overflow: TextOverflow.ellipsis)),
           ],
         ),
         actions: [
           IconButton(
+            tooltip: pendingCount > 0 ? 'اقتراحات رشيد ($pendingCount جديد)' : 'اقتراحات رشيد',
             icon: Badge(
               label: Text('$pendingCount'),
               isLabelVisible: pendingCount > 0,
@@ -60,6 +61,7 @@ class DashboardScreen extends ConsumerWidget {
             },
           ),
           IconButton(
+            tooltip: 'تحدّث مع رشيد',
             icon: const Icon(Icons.chat_bubble_outline),
             onPressed: () {
               Navigator.of(context).push(
@@ -68,6 +70,7 @@ class DashboardScreen extends ConsumerWidget {
             },
           ),
           IconButton(
+            tooltip: 'حسابي والخصوصية',
             icon: const Icon(Icons.person_outline),
             onPressed: () {
               Navigator.of(context).push(
@@ -118,7 +121,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 4),
             const Text(
               'اسحب من ⠿ لترتيب أولوياتك',
-              style: TextStyle(fontSize: 12, color: Colors.black45),
+              style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
             ),
             const SizedBox(height: 12),
             _GoalsSection(accentColor: accentColor),
@@ -145,7 +148,7 @@ class DashboardScreen extends ConsumerWidget {
                 if (transactions.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('ما في معاملات مسجّلة بعد', style: TextStyle(color: Colors.black54)),
+                    child: Text('ما في معاملات مسجّلة بعد', style: TextStyle(color: AppColors.secondaryText)),
                   );
                 }
                 return Column(
@@ -189,7 +192,7 @@ class _FirstRunCard extends StatelessWidget {
           const SizedBox(height: 6),
           const Text(
             'خطوة وحدة بتخلّي رشيد يفهم وضعك، وبتقدر تعمل الثانية بأي وقت:',
-            style: TextStyle(color: Colors.black54, fontSize: 13),
+            style: TextStyle(color: AppColors.secondaryText, fontSize: 13),
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
@@ -259,7 +262,7 @@ class _GoalsSectionState extends ConsumerState<_GoalsSection> {
         if (goals.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Text('ما عندك أهداف بعد', style: TextStyle(color: Colors.black54)),
+            child: Text('ما عندك أهداف بعد', style: TextStyle(color: AppColors.secondaryText)),
           );
         }
 
@@ -309,8 +312,8 @@ class _GoalsSectionState extends ConsumerState<_GoalsSection> {
                         ReorderableDragStartListener(
                           index: index,
                           child: const Padding(
-                            padding: EdgeInsets.only(left: 6),
-                            child: Icon(Icons.drag_indicator, color: Colors.black38),
+                            padding: EdgeInsetsDirectional.only(end: 6),
+                            child: Icon(Icons.drag_indicator, color: AppColors.secondaryText),
                           ),
                         ),
                         Expanded(

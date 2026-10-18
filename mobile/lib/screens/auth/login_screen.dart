@@ -8,6 +8,7 @@ import '../../widgets/app_text_field.dart';
 import 'register_screen.dart';
 import '../onboarding/onboarding_flow_screen.dart';
 import '../dashboard/dashboard_screen.dart';
+import '../../theme/app_theme.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -79,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 8),
                 const Text('وفّر مصاريك ووصل لأهدافك',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 15, color: Colors.black54)),
+                    style: TextStyle(fontSize: 15, color: AppColors.secondaryText)),
                 const SizedBox(height: 48),
                 AppTextField(
                   controller: _phoneController,

@@ -6,6 +6,7 @@ import '../core/dashboard_providers.dart';
 import '../core/api_client.dart';
 import '../models/transaction.dart';
 import '../models/goal.dart';
+import '../theme/app_theme.dart';
 
 
 
@@ -170,7 +171,7 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
             const SizedBox(height: 4),
             const Text(
               'قسّمهم على أكتر من خطة لو بدك — أي مبلغ ما توزعه بيضل بانتظارك',
-              style: TextStyle(fontSize: 12, color: Colors.black45),
+              style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -183,8 +184,8 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
                           children: [
                             if (goal.isRecurring)
                               const Padding(
-                                padding: EdgeInsets.only(left: 6),
-                                child: Icon(Icons.autorenew, size: 14, color: Colors.black45),
+                                padding: EdgeInsetsDirectional.only(end: 6),
+                                child: Icon(Icons.autorenew, size: 14, color: AppColors.secondaryText),
                               ),
                             Flexible(
                               child: Text(goal.title, overflow: TextOverflow.ellipsis),
@@ -210,7 +211,7 @@ class _IncomeAllocationSheetState extends ConsumerState<_IncomeAllocationSheet> 
               remaining >= -0.01
                   ? 'المتبقي بدون توزيع: ${_formatAmount(remaining < 0 ? 0 : remaining)} دينار'
                   : 'تجاوزت المبلغ المتاح بـ ${_formatAmount(-remaining)} دينار',
-              style: TextStyle(fontSize: 12, color: remaining < -0.01 ? Colors.red : Colors.black54),
+              style: TextStyle(fontSize: 12, color: remaining < -0.01 ? Colors.red : AppColors.secondaryText),
             ),
             if (_error != null) ...[
               const SizedBox(height: 6),

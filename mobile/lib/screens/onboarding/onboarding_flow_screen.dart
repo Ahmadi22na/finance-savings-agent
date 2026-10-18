@@ -139,7 +139,10 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
 
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Row(
+              child: Semantics(
+                label: 'الخطوة ${_currentPage + 1} من $_totalPages',
+                excludeSemantics: true,
+                child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_totalPages, (i) {
                   final isActive = i == _currentPage;
@@ -154,6 +157,7 @@ class _OnboardingFlowScreenState extends ConsumerState<OnboardingFlowScreen> {
                     ),
                   );
                 }),
+              ),
               ),
             ),
             Expanded(

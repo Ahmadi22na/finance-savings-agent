@@ -18,7 +18,11 @@ class SelectableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    // قارئ الشاشة لازم يعرف إنه زر وإنه مختار (مش بس حدود ملونة)
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
@@ -34,6 +38,7 @@ class SelectableCard extends StatelessWidget {
         ),
         child: child,
       ),
+    ),
     );
   }
 }

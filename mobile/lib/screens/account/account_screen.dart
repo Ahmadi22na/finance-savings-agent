@@ -140,7 +140,7 @@ class _PrivacyPoint extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.black54),
+          Icon(icon, size: 20, color: AppColors.secondaryText),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: const TextStyle(fontSize: 13, height: 1.5))),
         ],
@@ -291,7 +291,7 @@ class _PersonaSwitcherSheetState extends ConsumerState<_PersonaSwitcherSheet> {
             const SizedBox(height: 4),
             const Text(
               'جرّب الشخصيات براحتك. بتتغيّر طريقة حديث رشيد فقط، وأرقامك وأهدافك بتضل زي ما هي.',
-              style: TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
+              style: TextStyle(color: AppColors.secondaryText, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 16),
             personasAsync.when(
@@ -319,7 +319,7 @@ class _PersonaSwitcherSheetState extends ConsumerState<_PersonaSwitcherSheet> {
                           SizedBox(
                             height: 64,
                             width: 50,
-                            child: Image.asset(persona.imageAssetPath, fit: BoxFit.contain),
+                            child: Image.asset(persona.imageAssetPath, fit: BoxFit.contain, excludeFromSemantics: true),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -333,7 +333,7 @@ class _PersonaSwitcherSheetState extends ConsumerState<_PersonaSwitcherSheet> {
                                 const SizedBox(height: 2),
                                 Text(
                                   persona.tagline,
-                                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                  style: const TextStyle(color: AppColors.secondaryText, fontSize: 12),
                                 ),
                               ],
                             ),
@@ -446,7 +446,7 @@ class _PersonaFeedbackSheetState extends ConsumerState<_PersonaFeedbackSheet> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             const Text('تقييمك بيساعدنا نعرف أي شخصية بتفيد الناس أكتر.',
-                style: TextStyle(color: Colors.black54, fontSize: 13)),
+                style: TextStyle(color: AppColors.secondaryText, fontSize: 13)),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,

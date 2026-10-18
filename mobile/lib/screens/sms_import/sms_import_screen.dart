@@ -10,6 +10,8 @@ import '../../core/providers.dart';
 import '../../models/sms_import.dart';
 import '../../models/transaction.dart';
 import '../../widgets/income_allocation_sheet.dart';
+import '../../widgets/transaction_tile.dart';
+import '../../theme/app_theme.dart';
 
 enum _Stage { intro, loading, permissionDenied, permanentlyDenied, nothingFound, ready, importing, failed }
 
@@ -252,7 +254,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(child: Icon(Icons.sms_outlined, size: 48, color: Colors.black38)),
+            const Center(child: Icon(Icons.sms_outlined, size: 48, color: AppColors.secondaryText)),
             const SizedBox(height: 16),
             const Center(
               child: Text('قبل ما نقرا رسائلك', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -264,7 +266,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.check_circle_outline, size: 18, color: Colors.black45),
+                    const Icon(Icons.check_circle_outline, size: 18, color: AppColors.secondaryText),
                     const SizedBox(width: 10),
                     Expanded(child: Text(point, style: const TextStyle(height: 1.5))),
                   ],
@@ -301,7 +303,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 48, color: Colors.black38),
+            Icon(icon, size: 48, color: AppColors.secondaryText),
             const SizedBox(height: 16),
             Text(text, textAlign: TextAlign.center),
             const SizedBox(height: 20),
@@ -323,7 +325,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: const Text(
             'قرأنا بس الرسائل المالية (فيها JOD أو دينار). اختر يلي بدك تستورده — وما بنحفظ غيره.',
-            style: TextStyle(fontSize: 12, color: Colors.black54),
+            style: TextStyle(fontSize: 12, color: AppColors.secondaryText),
           ),
         ),
         Expanded(
@@ -354,7 +356,7 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
                   '${isIncome ? '+' : '-'}${_formatAmount(candidate.amount)}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isIncome ? Colors.green.shade700 : Colors.red.shade700,
+                    color: isIncome ? TransactionTile.incomeColor : TransactionTile.expenseColor,
                   ),
                 ),
               );

@@ -24,7 +24,7 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      textAlign: TextAlign.right,
+      textAlign: TextAlign.start,
       decoration: InputDecoration(labelText: label),
       validator: validator,
     );

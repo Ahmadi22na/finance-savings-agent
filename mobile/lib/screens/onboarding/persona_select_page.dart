@@ -35,7 +35,7 @@ class PersonaSelectPage extends ConsumerWidget {
           SizedBox(
             height: 90,
             width: 70,
-            child: Image.asset(persona.imageAssetPath, fit: BoxFit.contain),
+            child: Image.asset(persona.imageAssetPath, fit: BoxFit.contain, excludeFromSemantics: true),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -45,7 +45,7 @@ class PersonaSelectPage extends ConsumerWidget {
                 Text(persona.displayName,
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: color)),
                 const SizedBox(height: 4),
-                Text(persona.tagline, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                Text(persona.tagline, style: const TextStyle(color: AppColors.secondaryText, fontSize: 13)),
               ],
             ),
           ),
@@ -70,7 +70,7 @@ class PersonaSelectPage extends ConsumerWidget {
           const SizedBox(height: 8),
           const Text('اختار شخصية رشيد يلي بتشبهك أكتر (وتقدر تكمّل مباشرة بالاختيار الجاهز)',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54)),
+              style: TextStyle(color: AppColors.secondaryText)),
           const SizedBox(height: 20),
           Expanded(
             child: personasAsync.when(
@@ -89,7 +89,7 @@ class PersonaSelectPage extends ConsumerWidget {
                   const Text('شو يشبه دخلك؟', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   const Text('هيك رشيد بيحكي معك بأسلوب يناسب وضعك',
-                      style: TextStyle(color: Colors.black54, fontSize: 12)),
+                      style: TextStyle(color: AppColors.secondaryText, fontSize: 12)),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8,

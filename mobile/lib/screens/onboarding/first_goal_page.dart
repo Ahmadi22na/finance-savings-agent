@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/app_text_field.dart';
+import '../../theme/app_theme.dart';
 
 class FirstGoalPage extends StatelessWidget {
   final TextEditingController titleController;
@@ -25,7 +26,7 @@ class FirstGoalPage extends StatelessWidget {
           const SizedBox(height: 8),
           const Text('اختياري: تقدر تتخطّى هالخطوة وتضيف هدفك لاحقًا بأي وقت',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54)),
+              style: TextStyle(color: AppColors.secondaryText)),
           const SizedBox(height: 32),
           AppTextField(
             controller: titleController,

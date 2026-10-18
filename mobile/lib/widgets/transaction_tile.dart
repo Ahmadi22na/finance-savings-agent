@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models/transaction.dart';
 import '../theme/icon_mapper.dart';
+import '../theme/app_theme.dart';
 
 /// سطر معاملة مع شارات واضحة: مصدرها (يدوي / فاتورة / رسالة بنكية)، وهل التصنيف تلقائي (مع درجة الثقة)
 /// أو غير موجود. الضغط عليه بيفتح تعديل التصنيف (لو onTap مُمرَّر).
@@ -11,6 +12,16 @@ class TransactionTile extends StatelessWidget {
   final VoidCallback? onTap;
 
   const TransactionTile({super.key, required this.transaction, this.onTap});
+
+  // ألوان بتحقق تباين WCAG AA (≥ 4.5:1) على خلفياتها — مغطّاة باختبار test/accessibility_test.dart
+  static const Color incomeColor = Color(0xFF2E7D32);
+  static const Color expenseColor = Color(0xFFC62828);
+  static const Color neutralBadgeBackground = Color(0xFFEEEEEE);
+  static const Color neutralBadgeForeground = Color(0xFF212121);
+  static const Color autoBadgeBackground = Color(0xFFFFECB3);
+  static const Color autoBadgeForeground = Color(0xFF6D4C00);
+  static const Color uncategorizedBadgeBackground = Color(0xFFFFF3E0);
+  static const Color uncategorizedBadgeForeground = Color(0xFF8F3A00);
 
   static String sourceLabel(String source) {
     switch (source) {
@@ -41,7 +52,7 @@ class TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == 'income';
-    final amountColor = isIncome ? Colors.green.shade700 : Colors.red.shade700;
+    final amountColor = isIncome ? incomeColor : expenseColor;
     final amountPrefix = isIncome ? '+' : '-';
     final categoryName = transaction.category?.name ?? (transaction.note ?? 'بدون تصنيف');
     final iconKey = transaction.category?.icon ?? 'tag';
@@ -53,7 +64,7 @@ class TransactionTile extends StatelessWidget {
       onTap: onTap,
       leading: CircleAvatar(
         backgroundColor: Colors.grey.shade100,
-        child: Icon(iconForKey(iconKey), color: Colors.black54, size: 20),
+        child: Icon(iconForKey(iconKey), color: AppColors.secondaryText, size: 20),
       ),
       title: Text(categoryName, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Column(
@@ -71,8 +82,8 @@ class TransactionTile extends StatelessWidget {
               _MiniBadge(
                 icon: sourceIcon(transaction.source),
                 label: sourceLabel(transaction.source),
-                background: Colors.grey.shade200,
-                foreground: Colors.black54,
+                background: neutralBadgeBackground,
+                foreground: neutralBadgeForeground,
               ),
               if (isAuto)
                 _MiniBadge(
@@ -80,23 +91,28 @@ class TransactionTile extends StatelessWidget {
                   label: confidence != null
                       ? 'تصنيف تلقائي ${(confidence * 100).round()}%'
                       : 'تصنيف تلقائي',
-                  background: Colors.amber.shade100,
-                  foreground: Colors.amber.shade900,
+                  background: autoBadgeBackground,
+                  foreground: autoBadgeForeground,
                 ),
               if (transaction.category == null)
                 _MiniBadge(
                   icon: Icons.label_off_outlined,
                   label: 'بدون تصنيف',
-                  background: Colors.orange.shade50,
-                  foreground: Colors.orange.shade800,
+                  background: uncategorizedBadgeBackground,
+                  foreground: uncategorizedBadgeForeground,
                 ),
             ],
           ),
         ],
       ),
-      trailing: Text(
-        '$amountPrefix${transaction.amount.toStringAsFixed(1)}',
-        style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 15),
+      // قارئ الشاشة بيقرا "دخل 4.5 دينار" بدل "+4.5"، والإشارة +/- مكتوبة بالنص (مش اللون وحده)
+      trailing: Semantics(
+        label: '${isIncome ? 'دخل' : 'مصروف'} ${transaction.amount.toStringAsFixed(1)} دينار',
+        excludeSemantics: true,
+        child: Text(
+          '$amountPrefix${transaction.amount.toStringAsFixed(1)}',
+          style: TextStyle(color: amountColor, fontWeight: FontWeight.bold, fontSize: 15),
+        ),
       ),
     );
   }
@@ -128,7 +144,7 @@ class _MiniBadge extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: foreground),
           const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 11, color: foreground)),
+          Flexible(child: Text(label, style: TextStyle(fontSize: 12, color: foreground))),
         ],
       ),
     );

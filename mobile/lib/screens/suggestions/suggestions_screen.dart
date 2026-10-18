@@ -115,7 +115,7 @@ class _SuggestionsScreenState extends ConsumerState<SuggestionsScreen> {
                   Text(
                     _isChecking ? 'رشيد عم يراجع وضعك...' : 'ولا اقتراح جديد هلأ — كل شي تمام 👍',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.black54),
+                    style: const TextStyle(color: AppColors.secondaryText),
                   ),
                 ],
               );

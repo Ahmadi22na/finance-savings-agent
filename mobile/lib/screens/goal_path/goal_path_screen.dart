@@ -209,6 +209,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> with TickerProv
         title: Text(widget.goal.title),
         actions: [
           IconButton(
+            tooltip: 'احذف الهدف',
             icon: const Icon(Icons.delete_outline),
             onPressed: _isDeleting ? null : () => _confirmDelete(context),
           ),
@@ -282,6 +283,8 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> with TickerProv
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
                   value: ratio,
+                  semanticsLabel: 'تقدّم الهدف',
+                  semanticsValue: '${(ratio * 100).round()}%',
                   minHeight: 10,
                   backgroundColor: Colors.grey.shade300,
                   color: accentColor,
@@ -312,7 +315,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> with TickerProv
                   child: Text(
                     scheduleInfo.label,
                     style: TextStyle(
-                      color: scheduleInfo.onTrack ? Colors.green.shade800 : Colors.orange.shade800,
+                      color: scheduleInfo.onTrack ? Colors.green.shade800 : const Color(0xFF8F3A00),
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
@@ -361,7 +364,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> with TickerProv
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: shown >= stage ? FontWeight.w700 : FontWeight.w500,
-                color: shown >= stage ? accentColor : Colors.grey.shade600,
+                color: shown >= stage ? accentColor : Colors.grey.shade700,
               ),
             ),
           ),
@@ -418,6 +421,7 @@ class _GoalPathScreenState extends ConsumerState<GoalPathScreen> with TickerProv
                 personaImage,
                 fit: BoxFit.contain,
                 alignment: Alignment.bottomCenter,
+                excludeFromSemantics: true,
                 errorBuilder: (context, error, stack) => Icon(Icons.savings, color: accentColor, size: 40),
               );
 
@@ -644,14 +648,14 @@ class _StageNode extends StatelessWidget {
     if (isFinal) {
       content = Icon(
         isCompleted ? Icons.emoji_events : Icons.emoji_events_outlined,
-        color: isCompleted ? Colors.white : Colors.grey.shade500,
+        color: isCompleted ? Colors.white : Colors.grey.shade700,
       );
     } else if (isCompleted) {
       content = const Icon(Icons.check, color: Colors.white);
     } else {
       content = Text(
         '$stageNumber',
-        style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold),
+        style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold),
       );
     }
 
