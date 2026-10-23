@@ -88,10 +88,8 @@ def create_quick_log_transaction(
     return transaction, ai_suggested, suggestion_confidence
 
 
-def update_transaction_category(db: Session, user: User, transaction_id, category_id) -> Transaction:
-    """تصحيح المستخدم للتصنيف: بيصير origin=user وبتنمسح درجة الثقة (القرار صار قرار بشري)."""
-    transaction = get_transaction_or_404(db, user, transaction_id)
-
+def set_category(db: Session, user: User, transaction: Transaction, category_id) -> None:
+    """تصحيح المستخدم للتصنيف (بدون commit): بيصير origin=user وبتنمسح درجة الثقة (القرار صار قرار بشري)."""
     if category_id is None:
         transaction.category_id = None
         transaction.category_origin = None
@@ -109,6 +107,10 @@ def update_transaction_category(db: Session, user: User, transaction_id, categor
         transaction.category_origin = CategoryOrigin.USER
         transaction.category_confidence = None
 
+
+def update_transaction_category(db: Session, user: User, transaction_id, category_id) -> Transaction:
+    transaction = get_transaction_or_404(db, user, transaction_id)
+    set_category(db, user, transaction, category_id)
     db.commit()
     db.refresh(transaction)
     return transaction

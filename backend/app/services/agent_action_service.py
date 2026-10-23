@@ -15,6 +15,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
+from app.core.money import to_money
 from app.services import ai_usage_service
 from app.models.ai_usage import AiUsageKind
 from app.core.log_safety import describe_text, safe_error
@@ -26,6 +27,7 @@ from app.models.category import Category
 from app.models.goal import Goal, GoalStatus
 from app.models.user import User
 from app.services import goal_service
+from app.services.goal_ledger import MovementKind
 
 logger = logging.getLogger("rasheed.agent")
 
@@ -177,13 +179,15 @@ def _apply_goal_contribution(db: Session, user: User, action: AgentAction) -> No
 
     amount = action.payload.get("amount")
 
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == user.id).first()
-    if goal is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الهدف غير موجود")
+    try:
+        amount_value = to_money(amount)
+    except (TypeError, ValueError, ArithmeticError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
+    if amount_value <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="بيانات الاقتراح تالفة")
 
-    goal.current_amount = float(goal.current_amount) + float(amount)
-    if float(goal.current_amount) >= float(goal.target_amount):
-        goal.status = GoalStatus.ACHIEVED
+    # نفس بوابة المساهمة اليدوية والتوزيع: قفل + شرط الهدف النشط + حركة بالسجل (الـ commit بعدين بـ confirm_action)
+    goal_service.apply_contribution(db, user, goal_id, amount_value, MovementKind.AGENT_CONTRIBUTION)
 
 
 def _apply_goal_creation(db: Session, user: User, action: AgentAction) -> None:

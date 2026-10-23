@@ -7,10 +7,12 @@ import '../core/providers.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
 import '../theme/icon_mapper.dart';
+import 'transaction_edit_sheet.dart';
 import 'transaction_tile.dart';
 import '../theme/app_theme.dart';
 
-/// ورقة سفلية لتعديل تصنيف معاملة: بتعرض التصنيفات المناسبة لنوعها، وبعد الاختيار بيتحفظ التعديل
+/// ورقة سفلية لتعديل معاملة: التصنيف مباشرة، ومعها زرّي "تعديل المبلغ والملاحظة" و"حذف المعاملة".
+/// (التصنيف: بتعرض التصنيفات المناسبة لنوعها، وبعد الاختيار بيتحفظ التعديل
 /// بالسيرفر وبتتحدّث القائمة. (بعد التعديل بتختفي شارة "تصنيف تلقائي" لأنه صار قرار المستخدم.)
 Future<void> showTransactionCategorySheet(BuildContext context, Transaction transaction) {
   return showModalBottomSheet<void>(
@@ -32,6 +34,65 @@ class _TransactionCategorySheet extends ConsumerStatefulWidget {
 
 class _TransactionCategorySheetState extends ConsumerState<_TransactionCategorySheet> {
   bool _isSaving = false;
+
+  static String _formatAmount(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(3).replaceFirst(RegExp(r'0+$'), '');
+  }
+
+  Future<void> _openEdit() async {
+    final saved = await showTransactionEditSheet(context, widget.transaction);
+    if (saved == true && mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _confirmDelete() async {
+    final transaction = widget.transaction;
+    final allocated = transaction.type == 'income' ? transaction.amount - transaction.unallocatedAmount : 0.0;
+    final hasAllocation = allocated > 0.0005;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('حذف المعاملة؟'),
+        content: Text(
+          hasAllocation
+              ? 'جزء من هالدخل (${_formatAmount(allocated)} دينار) موزَّع على أهدافك. إذا حذفتها، هالمبلغ بينقص من الأهداف المعنية. ما بتقدر تتراجع.'
+              : 'رح تنحذف هالمعاملة نهائيًا وما بتقدر تتراجع.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: TransactionTile.expenseColor),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('احذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(transactionServiceProvider).deleteTransaction(transaction.id);
+      ref.invalidate(recentTransactionsProvider);
+      ref.invalidate(goalsListProvider); // مبالغ الأهداف ممكن تتغيّر بعد عكس التوزيع
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      messenger.showSnackBar(const SnackBar(content: Text('تم حذف المعاملة')));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(const SnackBar(content: Text('ما قدرنا نحذف المعاملة، جرب كمان شوي')));
+    }
+  }
 
   Future<void> _save(String? categoryId) async {
     final messenger = ScaffoldMessenger.of(context);
@@ -111,6 +172,26 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
               ),
               error: (_, __) => const Text('ما قدرنا نحمّل التصنيفات، جرب كمان شوي'),
               data: (all) => _buildChoices(all),
+            ),
+            const SizedBox(height: 12),
+            const Divider(),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSaving ? null : _openEdit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('تعديل المبلغ والملاحظة'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSaving ? null : _confirmDelete,
+                style: OutlinedButton.styleFrom(foregroundColor: TransactionTile.expenseColor),
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: const Text('حذف المعاملة'),
+              ),
             ),
           ],
         ),

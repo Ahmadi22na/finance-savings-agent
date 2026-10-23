@@ -536,8 +536,8 @@
         "tags": [
           "Transactions"
         ],
-        "summary": "تعديل تصنيف معاملة",
-        "description": "يغيّر تصنيف معاملة المستخدم (أو يزيله بإرسال `category_id: null`). بعد التعديل يصبح `category_origin = user` وتُمسح درجة الثقة التلقائية، فتختفي شارة «تصنيف تلقائي» من الواجهة. التصنيف لازم يكون افتراضيًا أو خاصًا بالمستخدم، ويناسب نوع المعاملة (دخل أو مصروف).",
+        "summary": "تعديل معاملة",
+        "description": "يعدّل حقول معاملة المستخدم: `amount` أو `occurred_at` أو `note` أو `category_id` (أي مجموعة منها؛ الحقل غير المُرسَل لا يتغيّر، و`category_id: null` أو `note: null` يزيله). لازم ترسل حقل واحد على الأقل. بعد تعديل التصنيف يصبح `category_origin = user` وتُمسح درجة الثقة التلقائية. التصنيف لازم يكون افتراضيًا أو خاصًا بالمستخدم ويناسب نوع المعاملة. دخل موزَّع على أهداف لا يقبل مبلغًا أقل من المجموع الموزَّع منه.",
         "operationId": "update_transaction_api_v1_transactions__transaction_id__patch",
         "security": [
           {
@@ -588,7 +588,67 @@
             }
           },
           "400": {
-            "description": "التصنيف غير موجود (أو ليس للمستخدم)، أو لا يناسب نوع المعاملة.",
+            "description": "التصنيف غير موجود أو لا يناسب النوع، أو المبلغ الجديد أقل من المبلغ الموزَّع على الأهداف.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "المعاملة غير موجودة.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "حذف معاملة",
+        "description": "يحذف معاملة المستخدم نهائيًا. إذا كانت دخلاً موزَّعًا على أهداف، تُعكس التوزيعات (حركات عكس بسجل الأهداف) فتنقص مبالغ الأهداف المعنية، ما عدا توزيعات دورات شهرية سابقة لأهداف متكررة. لا يرجّع محتوى (204).",
+        "operationId": "delete_transaction_api_v1_transactions__transaction_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Transaction Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2157,8 +2217,16 @@
       "GoalContribution": {
         "properties": {
           "amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,11}|(?=[\\d.]{1,15}0*$)\\d{0,11}\\.\\d{0,3}0*$)"
+              }
+            ],
             "title": "Amount",
             "description": "المبلغ المضاف بالدينار"
           }
@@ -2191,8 +2259,16 @@
             "default": "target"
           },
           "target_amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,11}|(?=[\\d.]{1,15}0*$)\\d{0,11}\\.\\d{0,3}0*$)"
+              }
+            ],
             "title": "Target Amount",
             "description": "المبلغ المستهدف بالدينار"
           },
@@ -2385,8 +2461,16 @@
             "description": "معرّف الهدف (نشط وتابع للمستخدم)"
           },
           "amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,11}|(?=[\\d.]{1,15}0*$)\\d{0,11}\\.\\d{0,3}0*$)"
+              }
+            ],
             "title": "Amount",
             "description": "المبلغ الموزَّع على هذا الهدف بالدينار"
           }
@@ -2819,6 +2903,12 @@
             "type": "boolean",
             "title": "Already Imported",
             "description": "true إذا هذه الرسالة استُوردت سابقًا (لن تُستورد مرة ثانية)"
+          },
+          "possible_duplicate": {
+            "type": "boolean",
+            "title": "Possible Duplicate",
+            "description": "تنبيه فقط: true إذا يوجد عند المستخدم معاملة مصدرها `sms` (رسالة لصقها يدويًا) بنفس المبلغ والنوع وخلال 24 ساعة من وقت استلام الرسالة، فربما هذه الرسالة سُجّلت سابقًا. لا يمنع الاستيراد؛ القرار للمستخدم.",
+            "default": false
           }
         },
         "type": "object",
@@ -3158,8 +3248,16 @@
       "TransactionQuickLogCreate": {
         "properties": {
           "amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,11}|(?=[\\d.]{1,15}0*$)\\d{0,11}\\.\\d{0,3}0*$)"
+              }
+            ],
             "title": "Amount",
             "description": "المبلغ بالدينار، لازم يكون أكبر من صفر"
           },
@@ -3277,19 +3375,69 @@
             ],
             "title": "Category Id",
             "description": "التصنيف الجديد (من `GET /categories`)، أو null لإزالته"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                  }
+                ],
+                "decimal_places": 3,
+                "gt": 0,
+                "max_digits": 14
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount",
+            "description": "المبلغ الجديد بالدينار (حتى 3 خانات)"
+          },
+          "occurred_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurred At",
+            "description": "وقت المعاملة الجديد"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note",
+            "description": "الملاحظة الجديدة، أو null لمسحها"
           }
         },
         "type": "object",
-        "required": [
-          "category_id"
-        ],
         "title": "TransactionUpdate",
-        "description": "تعديل تصنيف معاملة. `null` = إزالة التصنيف.",
+        "description": "تعديل معاملة (الدفعة 0.D): أي مجموعة من الحقول. الحقل غير المُرسَل = بدون تغيير (≠ null).\n`category_id: null` = إزالة التصنيف، `note: null` = مسح الملاحظة. لازم ترسل حقل واحد على الأقل.",
         "examples": [
           {
             "category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
           },
-          {}
+          {},
+          {
+            "amount": 12.5,
+            "note": "تصحيح المبلغ"
+          }
         ]
       },
       "UserLogin": {

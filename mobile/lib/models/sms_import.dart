@@ -21,6 +21,7 @@ class SmsImportCandidate {
   final String type; // 'income' | 'expense'
   final String note;
   final bool alreadyImported;
+  final bool possibleDuplicate; // تنبيه من السيرفر: يشبه رسالة لصقها المستخدم يدويًا (لا يمنع الاستيراد)
 
   SmsImportCandidate({
     required this.body,
@@ -29,6 +30,7 @@ class SmsImportCandidate {
     required this.type,
     required this.note,
     required this.alreadyImported,
+    this.possibleDuplicate = false,
   });
 
   factory SmsImportCandidate.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,7 @@ class SmsImportCandidate {
       type: json['type'] as String,
       note: json['note'] as String,
       alreadyImported: json['already_imported'] as bool? ?? false,
+      possibleDuplicate: json['possible_duplicate'] as bool? ?? false,
     );
   }
 

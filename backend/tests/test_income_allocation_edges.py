@@ -1,5 +1,5 @@
 """
-R10 — حالات حدّية لتوزيع الدخل المتغيّر: أخطاء التقريب، مبالغ صفر/سالبة، تجاوز المتاح، تكرار الأهداف.
+R10 (محدّث بالدفعة 0.B: دقة 3 خانات) — حالات حدّية لتوزيع الدخل المتغيّر: أخطاء التقريب، مبالغ صفر/سالبة، تجاوز المتاح، تكرار الأهداف.
 """
 import pytest
 
@@ -104,16 +104,13 @@ def test_cannot_allocate_to_another_users_goal(client, db_session):
     assert response.status_code == 400
 
 
-def test_sub_cent_amounts_are_rounded_and_never_exceed_the_income(client, db_session):
-    """10.004 على دخل 10.00: بيتقرّب لـ 10.00 (خانتين عشريتين)، فما في تجاوز ولا فلس زيادة."""
+def test_one_fils_over_the_income_is_rejected(client, db_session):
+    """الدقة صارت 3 خانات (فلس): 10.001 على دخل 10 = زيادة فلس وحيد، ولازم تنرفض."""
     headers, _ = register_with_persona(client, db_session, "0790091017")
     goal = make_goal(client, headers, "سفر")
     income = make_income(client, headers, 10)
-    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": 10.004}])
-    assert response.status_code == 200
-    body = response.json()
-    assert body["transaction"]["unallocated_amount"] == 0.0
-    assert body["updated_goals"][0]["current_amount"] == 10.0
+    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": 10.001}])
+    assert response.status_code == 400
 
 
 def test_clearly_over_the_income_by_a_cent_is_rejected(client, db_session):
@@ -133,9 +130,31 @@ def test_smallest_allocation_of_one_cent_works(client, db_session):
     assert response.json()["transaction"]["unallocated_amount"] == 9.99
 
 
-def test_amount_that_rounds_to_zero_is_rejected(client, db_session):
-    headers, _ = register_with_persona(client, db_session, "0790091020")
+def test_smallest_allocation_of_one_fils_works(client, db_session):
+    headers, _ = register_with_persona(client, db_session, "0790091021")
     goal = make_goal(client, headers, "سفر")
     income = make_income(client, headers, 10)
-    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": 0.004}])
-    assert response.status_code == 400
+    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": 0.001}])
+    assert response.status_code == 200
+    assert response.json()["transaction"]["unallocated_amount"] == 9.999
+    assert response.json()["updated_goals"][0]["current_amount"] == 0.001
+
+
+@pytest.mark.parametrize("too_precise", [10.0004, 0.0004])
+def test_amount_with_more_than_three_decimals_is_rejected(client, db_session, too_precise):
+    """بدل التقريب الصامت القديم: مبلغ أدق من فلس بيتم رفضه (422) بدل ما يتقرّب."""
+    headers, _ = register_with_persona(client, db_session, f"07900910{int(too_precise * 10000) % 90 + 30:02d}")
+    goal = make_goal(client, headers, "سفر")
+    income = make_income(client, headers, 10)
+    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": too_precise}])
+    assert response.status_code == 422
+
+
+def test_binary_float_noise_from_the_client_is_tolerated(client, db_session):
+    """الموبايل ممكن يبعت 0.1 + 0.2 كـ 0.30000000000000004 — هاد ضجيج مش مبلغ حقيقي."""
+    headers, _ = register_with_persona(client, db_session, "0790091022")
+    goal = make_goal(client, headers, "سفر")
+    income = make_income(client, headers, 0.3)
+    response = allocate(client, headers, income["id"], [{"goal_id": goal["id"], "amount": 0.1 + 0.2}])
+    assert response.status_code == 200
+    assert response.json()["transaction"]["unallocated_amount"] == 0.0

@@ -1,10 +1,12 @@
 import enum
 from datetime import date
+from decimal import Decimal
 
 from sqlalchemy import String, Numeric, Date, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.money import to_money
 from app.database.session import Base
 from app.models.mixins import UUIDPrimaryKeyMixin, TimestampMixin
 
@@ -24,8 +26,8 @@ class Goal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     icon: Mapped[str] = mapped_column(String(50), default="target")
 
     # Numeric بدل Float للمبالغ المالية دايمًا — Float فيه أخطاء تقريب خطيرة بالحسابات المالية
-    target_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    current_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    target_amount: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
+    current_amount: Mapped[Decimal] = mapped_column(Numeric(14, 3), default=0)
 
     # ترتيب الأولوية بين خطط نفس المستخدم — رقم أصغر = أولوية أعلى.
     # ما بنستخدم created_at للترتيب لأنه المستخدم لازم يقدر يعيد الترتيب يدويًا
@@ -51,6 +53,8 @@ class Goal(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     @property
     def progress_percentage(self) -> float:
         """نسبة تحقيق الهدف — يستخدمها رشيد كثيرًا بالتشجيع والتنبيهات."""
-        if self.target_amount <= 0:
+        target = to_money(self.target_amount or 0)
+        if target <= 0:
             return 0.0
-        return round(min(float(self.current_amount) / float(self.target_amount), 1.0) * 100, 1)
+        ratio = min(to_money(self.current_amount or 0) / target, Decimal(1))
+        return round(float(ratio * 100), 1)

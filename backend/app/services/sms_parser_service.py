@@ -18,11 +18,14 @@ Play Store (عمليًا مخصصة بس لتطبيقات الرسائل الا�
 """
 import re
 from dataclasses import dataclass
+from decimal import Decimal
+
+from app.core.money import to_money
 
 
 @dataclass
 class ParsedSms:
-    amount: float
+    amount: Decimal
     type: str  # "income" | "expense"
     note: str
 
@@ -51,7 +54,7 @@ def parse_sms(text: str) -> ParsedSms | None:
     match = _CLIQ_RECEIVED_PATTERN.search(cleaned)
     if match:
         return ParsedSms(
-            amount=_to_float(match.group("amount")),
+            amount=_to_amount(match.group("amount")),
             type="income",
             note=f"تحويل CliQ من {match.group('sender')}",
         )
@@ -59,7 +62,7 @@ def parse_sms(text: str) -> ParsedSms | None:
     match = _CLIQ_TRANSFER_PATTERN.search(cleaned)
     if match:
         return ParsedSms(
-            amount=_to_float(match.group("amount")),
+            amount=_to_amount(match.group("amount")),
             type="expense",
             note=f"تحويل CliQ إلى {match.group('recipient')}",
         )
@@ -67,5 +70,5 @@ def parse_sms(text: str) -> ParsedSms | None:
     return None
 
 
-def _to_float(raw_amount: str) -> float:
-    return float(raw_amount.replace(",", ""))
+def _to_amount(raw_amount: str) -> Decimal:
+    return to_money(raw_amount.replace(",", ""))

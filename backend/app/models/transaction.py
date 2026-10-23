@@ -1,5 +1,6 @@
 import enum
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy import Numeric, Enum as SAEnum, ForeignKey, DateTime, JSON, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -52,7 +53,8 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
 
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    # الدينار الأردني = 3 خانات (فلس) → NUMERIC(14,3) (الدفعة 0.B)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)
     type: Mapped[TransactionType] = mapped_column(SAEnum(TransactionType, name="transaction_type_enum"))
     source: Mapped[TransactionSource] = mapped_column(SAEnum(TransactionSource, name="transaction_source_enum"))
 

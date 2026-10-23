@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.core.money import MoneyIn
 from app.models.transaction import CategoryOrigin, TransactionType, TransactionSource
 from app.schemas.category import CategoryOut
 from app.schemas.goal import GoalOut
@@ -16,7 +17,7 @@ class TransactionQuickLogCreate(BaseModel):
     - مسار النص الذكي: يوصل note بدون category_id → محرك التصنيف (Rule-based اليوم، Gemini لاحقًا)
       بيحاول يخمّن التصنيف تلقائيًا
     """
-    amount: float = Field(gt=0, description="المبلغ بالدينار، لازم يكون أكبر من صفر")
+    amount: MoneyIn = Field(gt=0, max_digits=14, decimal_places=3, description="المبلغ بالدينار، لازم يكون أكبر من صفر")
     type: TransactionType = Field(description="`income` دخل أو `expense` مصروف")
     category_id: uuid.UUID | None = Field(default=None, description="معرّف تصنيف من `GET /categories` (مسار الأيقونات)")
     note: str | None = Field(
@@ -95,20 +96,42 @@ class TransactionOut(BaseModel):
     }
 
 
+PositiveMoney = Annotated[MoneyIn, Field(gt=0, max_digits=14, decimal_places=3)]
+
+
 class TransactionUpdate(BaseModel):
-    """تعديل تصنيف معاملة. `null` = إزالة التصنيف."""
-    category_id: uuid.UUID | None = Field(description="التصنيف الجديد (من `GET /categories`)، أو null لإزالته")
+    """
+    تعديل معاملة (الدفعة 0.D): أي مجموعة من الحقول. الحقل غير المُرسَل = بدون تغيير (≠ null).
+    `category_id: null` = إزالة التصنيف، `note: null` = مسح الملاحظة. لازم ترسل حقل واحد على الأقل.
+    """
+    category_id: uuid.UUID | None = Field(default=None, description="التصنيف الجديد (من `GET /categories`)، أو null لإزالته")
+    amount: PositiveMoney | None = Field(default=None, description="المبلغ الجديد بالدينار (حتى 3 خانات)")
+    occurred_at: datetime | None = Field(default=None, description="وقت المعاملة الجديد")
+    note: str | None = Field(default=None, max_length=200, description="الملاحظة الجديدة، أو null لمسحها")
 
     model_config = {
         "json_schema_extra": {
-            "examples": [{"category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"}, {"category_id": None}]
+            "examples": [
+                {"category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"},
+                {"category_id": None},
+                {"amount": 12.5, "note": "تصحيح المبلغ"},
+            ]
         }
     }
+
+    @model_validator(mode="after")
+    def at_least_one_field(self):
+        if not self.model_fields_set:
+            raise ValueError("لازم ترسل حقل واحد على الأقل للتعديل")
+        for name in ("amount", "occurred_at"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"الحقل {name} ما بيقبل null")
+        return self
 
 
 class IncomeAllocationItem(BaseModel):
     goal_id: uuid.UUID = Field(description="معرّف الهدف (نشط وتابع للمستخدم)")
-    amount: float = Field(gt=0, description="المبلغ الموزَّع على هذا الهدف بالدينار")
+    amount: MoneyIn = Field(gt=0, max_digits=14, decimal_places=3, description="المبلغ الموزَّع على هذا الهدف بالدينار")
 
 
 class IncomeAllocationRequest(BaseModel):
@@ -243,6 +266,13 @@ class SmsImportCandidate(BaseModel):
     type: TransactionType
     note: str
     already_imported: bool = Field(description="true إذا هذه الرسالة استُوردت سابقًا (لن تُستورد مرة ثانية)")
+    possible_duplicate: bool = Field(
+        default=False,
+        description=(
+            "تنبيه فقط: true إذا يوجد عند المستخدم معاملة مصدرها `sms` (رسالة لصقها يدويًا) بنفس المبلغ والنوع "
+            "وخلال 24 ساعة من وقت استلام الرسالة، فربما هذه الرسالة سُجّلت سابقًا. لا يمنع الاستيراد؛ القرار للمستخدم."
+        ),
+    )
 
 
 class SmsImportPreviewResponse(BaseModel):

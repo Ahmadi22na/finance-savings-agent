@@ -64,6 +64,35 @@ class TransactionService {
 
 
 
+  /// تعديل مبلغ/ملاحظة/وقت معاملة. بنرسل بس الحقول المتغيّرة؛ clearNote=true بيمسح الملاحظة.
+  Future<Transaction> updateTransaction(
+    String transactionId, {
+    double? amount,
+    String? note,
+    bool clearNote = false,
+    DateTime? occurredAt,
+  }) async {
+    try {
+      final response = await _apiClient.dio.patch('/transactions/$transactionId', data: {
+        if (amount != null) 'amount': amount,
+        if (clearNote) 'note': null else if (note != null) 'note': note.trim(),
+        if (occurredAt != null) 'occurred_at': occurredAt.toUtc().toIso8601String(),
+      });
+      return Transaction.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// حذف معاملة. لو كانت دخلاً موزَّعًا، السيرفر بيعكس التوزيعات (مبالغ الأهداف بتنقص).
+  Future<void> deleteTransaction(String transactionId) async {
+    try {
+      await _apiClient.dio.delete('/transactions/$transactionId');
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
   Future<Transaction> allocateIncome({
     required String transactionId,
     required List<Map<String, dynamic>> allocations,

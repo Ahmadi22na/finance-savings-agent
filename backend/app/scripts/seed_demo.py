@@ -40,6 +40,7 @@ from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
 from app.models.persona_feedback import PersonaFeedback
 from app.models.goal import Goal, GoalStatus
+from app.models.goal_movement import GoalMovement
 from app.models.income_allocation import IncomeAllocation
 from app.models.persona import Persona
 from app.models.transaction import CategoryOrigin, Transaction, TransactionSource, TransactionType
@@ -154,6 +155,15 @@ def build_demo(db, persona_key: str, mood: str, phone: str, password: str) -> di
             created_at=now - timedelta(days=created_days_ago),
         ))
     db.add_all(goals)
+    db.flush()
+    # سجل حركة الأهداف (0.C): الرصيد الحالي لكل هدف يبدأ بحركة افتتاحية، فمجموع الحركات = current_amount
+    for goal in goals:
+        if goal.current_amount:
+            db.add(GoalMovement(
+                goal_id=goal.id, amount=goal.current_amount, kind="opening",
+                cycle=goal.last_reset_month if goal.is_recurring else None,
+                created_at=goal.created_at,
+            ))
     db.flush()
     laptop = goals[-1]
 

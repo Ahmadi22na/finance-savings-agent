@@ -26,3 +26,6 @@ mobile/.packages
 
 # Docker
 *.log
+
+# Цнялгй йтшМА ФщмФугй (Аг йящз)
+_run_logs/

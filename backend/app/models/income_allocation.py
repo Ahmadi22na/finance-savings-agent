@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from sqlalchemy import ForeignKey, Numeric
 from sqlalchemy.dialects.postgresql import UUID
@@ -23,4 +24,4 @@ class IncomeAllocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     goal_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("goals.id", ondelete="CASCADE")
     )
-    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 3), nullable=False)

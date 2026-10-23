@@ -11,12 +11,13 @@ SMS Import Service — Sprint 9، المرحلة 1 (استيراد يدوي من
    ونفس الرسالة بنفس الوقت = معاملة وحدة مهما انستوردت مرات.
 """
 import hashlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.money import to_money
 from app.models.transaction import Transaction, TransactionSource, TransactionType
 from app.models.user import User
 from app.schemas.transaction import SmsImportCandidate, SmsMessageIn
@@ -62,18 +63,66 @@ def _existing_refs(db: Session, user: User, refs: list[str]) -> set[str]:
     return {row[0] for row in rows}
 
 
+# الدفعة 0.E: رسالة ملصوقة يدويًا (quick-log بمصدر sms) ما إلها بصمة، فاستيرادها لاحقًا بيعمل معاملة ثانية.
+# بنعلّم المرشّح "ممكن مكرر" (تنبيه فقط، ما بنمنع شي) لو في معاملة ملصوقة بنفس المبلغ والنوع خلال هالنافذة.
+POSSIBLE_DUPLICATE_WINDOW = timedelta(hours=24)
+
+
+def _possible_duplicate_refs(db: Session, user: User, items, existing: set[str]) -> set[str]:
+    """
+    بصمات المرشّحين يلي غالبًا إلهم نظير ملصوق مسبقًا. المطابقة واحد-لواحد: المعاملة الملصوقة بتطابق أقرب رسالة بالوقت
+    فقط، فتحويلين متطابقين فعليًا ولصقت واحد منهم = تنبيه على واحد بس.
+    """
+    pending = [(message, parsed, ref) for message, parsed, ref in items if ref not in existing]
+    if not pending:
+        return set()
+
+    times = [_as_utc(message.received_at) for message, _, _ in pending]
+    rows = (
+        db.query(Transaction.id, Transaction.amount, Transaction.type, Transaction.occurred_at)
+        .filter(
+            Transaction.user_id == user.id,
+            Transaction.source == TransactionSource.SMS,
+            Transaction.external_ref.is_(None),
+            Transaction.occurred_at >= min(times) - POSSIBLE_DUPLICATE_WINDOW,
+            Transaction.occurred_at <= max(times) + POSSIBLE_DUPLICATE_WINDOW,
+        )
+        .all()
+    )
+    pasted = [(row.id, to_money(row.amount), row.type, _as_utc(row.occurred_at)) for row in rows]
+
+    used: set = set()
+    flagged: set[str] = set()
+    for message, parsed, ref in sorted(pending, key=lambda item: _as_utc(item[0].received_at)):
+        received_at = _as_utc(message.received_at)
+        amount, kind = to_money(parsed.amount), TransactionType(parsed.type)
+        best = None
+        for tx_id, tx_amount, tx_type, tx_time in pasted:
+            if tx_id in used or tx_amount != amount or tx_type != kind:
+                continue
+            gap = abs(tx_time - received_at)
+            if gap <= POSSIBLE_DUPLICATE_WINDOW and (best is None or gap < best[1]):
+                best = (tx_id, gap)
+        if best is not None:
+            used.add(best[0])
+            flagged.add(ref)
+    return flagged
+
+
 def preview_import(db: Session, user: User, messages: list[SmsMessageIn]) -> list[SmsImportCandidate]:
     items = _parse_unique_messages(messages)
     existing = _existing_refs(db, user, [ref for _, _, ref in items])
+    possible_duplicates = _possible_duplicate_refs(db, user, items, existing)
 
     candidates = [
         SmsImportCandidate(
             body=message.body.strip(),
             received_at=_as_utc(message.received_at),
-            amount=parsed.amount,
+            amount=float(parsed.amount),
             type=TransactionType(parsed.type),
             note=parsed.note,
             already_imported=ref in existing,
+            possible_duplicate=ref in possible_duplicates,
         )
         for message, parsed, ref in items
     ]

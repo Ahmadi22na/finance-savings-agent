@@ -25,6 +25,7 @@ from app.schemas.transaction import (
 )
 from app.services import (
     transaction_service, income_allocation_service, receipt_service, sms_parser_service, sms_import_service,
+    transaction_edit_service,
 )
 from app.agent.providers.factory import get_ai_provider
 
@@ -42,7 +43,7 @@ def _apply_origin_flags(item: TransactionOut) -> TransactionOut:
 
 def _to_transaction_out(db: Session, transaction) -> TransactionOut:
     result = _apply_origin_flags(TransactionOut.model_validate(transaction))
-    result.unallocated_amount = income_allocation_service.get_unallocated_amount(db, transaction)
+    result.unallocated_amount = float(income_allocation_service.get_unallocated_amount(db, transaction))
     return result
 
 
@@ -80,14 +81,15 @@ def quick_log_transaction(
 @router.patch(
     "/{transaction_id}",
     response_model=TransactionOut,
-    summary="تعديل تصنيف معاملة",
+    summary="تعديل معاملة",
     description=(
-        "يغيّر تصنيف معاملة المستخدم (أو يزيله بإرسال `category_id: null`). بعد التعديل يصبح "
-        "`category_origin = user` وتُمسح درجة الثقة التلقائية، فتختفي شارة «تصنيف تلقائي» من الواجهة. "
-        "التصنيف لازم يكون افتراضيًا أو خاصًا بالمستخدم، ويناسب نوع المعاملة (دخل أو مصروف)."
+        "يعدّل حقول معاملة المستخدم: `amount` أو `occurred_at` أو `note` أو `category_id` (أي مجموعة منها؛ "
+        "الحقل غير المُرسَل لا يتغيّر، و`category_id: null` أو `note: null` يزيله). لازم ترسل حقل واحد على الأقل. "
+        "بعد تعديل التصنيف يصبح `category_origin = user` وتُمسح درجة الثقة التلقائية. التصنيف لازم يكون افتراضيًا أو "
+        "خاصًا بالمستخدم ويناسب نوع المعاملة. دخل موزَّع على أهداف لا يقبل مبلغًا أقل من المجموع الموزَّع منه."
     ),
     responses=responses(
-        bad_request("التصنيف غير موجود (أو ليس للمستخدم)، أو لا يناسب نوع المعاملة."),
+        bad_request("التصنيف غير موجود أو لا يناسب النوع، أو المبلغ الجديد أقل من المبلغ الموزَّع على الأهداف."),
         not_found("المعاملة غير موجودة."),
     ),
 )
@@ -97,8 +99,26 @@ def update_transaction(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    transaction = transaction_service.update_transaction_category(db, current_user, transaction_id, data.category_id)
+    transaction = transaction_edit_service.update_transaction(db, current_user, transaction_id, data)
     return _to_transaction_out(db, transaction)
+
+
+@router.delete(
+    "/{transaction_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="حذف معاملة",
+    description=(
+        "يحذف معاملة المستخدم نهائيًا. إذا كانت دخلاً موزَّعًا على أهداف، تُعكس التوزيعات (حركات عكس بسجل الأهداف) "
+        "فتنقص مبالغ الأهداف المعنية، ما عدا توزيعات دورات شهرية سابقة لأهداف متكررة. لا يرجّع محتوى (204)."
+    ),
+    responses=not_found("المعاملة غير موجودة."),
+)
+def delete_transaction(
+    transaction_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transaction_edit_service.delete_transaction(db, current_user, transaction_id)
 
 
 @router.get(
@@ -121,7 +141,7 @@ def list_transactions(
     results = []
     for transaction in transactions:
         item = _apply_origin_flags(TransactionOut.model_validate(transaction))
-        item.unallocated_amount = unallocated.get(transaction.id, 0.0)
+        item.unallocated_amount = float(unallocated.get(transaction.id, 0))
         results.append(item)
     return results
 
@@ -194,7 +214,7 @@ def parse_sms(
     if parsed is None:
         return SmsParseResult(amount=None, type=None, note=None, parsed=False)
 
-    return SmsParseResult(amount=parsed.amount, type=parsed.type, note=parsed.note, parsed=True)
+    return SmsParseResult(amount=float(parsed.amount), type=parsed.type, note=parsed.note, parsed=True)
 
 
 @router.post(

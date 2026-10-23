@@ -3,13 +3,14 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from app.core.money import MoneyIn
 from app.models.goal import GoalStatus
 
 
 class GoalCreate(BaseModel):
     title: str = Field(min_length=2, max_length=150, description="عنوان الهدف")
     icon: str = Field(default="target", description="مفتاح أيقونة يفسّره تطبيق الموبايل (مثل laptop أو plane)")
-    target_amount: float = Field(gt=0, description="المبلغ المستهدف بالدينار")
+    target_amount: MoneyIn = Field(gt=0, max_digits=14, decimal_places=3, description="المبلغ المستهدف بالدينار")
     deadline: date | None = Field(default=None, description="الموعد النهائي (اختياري)")
     # "مصروف ثابت شهري" — نفس الخطة العادية بالضبط، بس بتتصفّر تلقائيًا كل
     # شهر لما توصل لهدفها بدل ما تضل مكتملة للأبد.
@@ -33,7 +34,7 @@ class GoalCreate(BaseModel):
 
 class GoalContribution(BaseModel):
     """إضافة مبلغ لتقدم الهدف (مثلاً بعد ما المستخدم يوفر مبلغ فعليًا)."""
-    amount: float = Field(gt=0, description="المبلغ المضاف بالدينار")
+    amount: MoneyIn = Field(gt=0, max_digits=14, decimal_places=3, description="المبلغ المضاف بالدينار")
 
     model_config = {"json_schema_extra": {"examples": [{"amount": 50}]}}
 

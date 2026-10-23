@@ -16,6 +16,7 @@ from app.models.active_day import UserActiveDay
 from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
 from app.models.goal import Goal
+from app.models.goal_movement import GoalMovement
 from app.models.income_allocation import IncomeAllocation
 from app.models.persona_feedback import PersonaFeedback
 from app.models.transaction import Transaction
@@ -38,6 +39,7 @@ def delete_account(db: Session, user: User, password: str) -> None:
             synchronize_session=False
         )
         db.query(IncomeAllocation).filter(IncomeAllocation.goal_id.in_(user_goals)).delete(synchronize_session=False)
+        db.query(GoalMovement).filter(GoalMovement.goal_id.in_(user_goals)).delete(synchronize_session=False)
         db.query(AgentAction).filter(AgentAction.user_id == user_id).delete(synchronize_session=False)
         db.query(AgentInteraction).filter(AgentInteraction.user_id == user_id).delete(synchronize_session=False)
         db.query(AiUsageEvent).filter(AiUsageEvent.user_id == user_id).delete(synchronize_session=False)

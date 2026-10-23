@@ -99,7 +99,8 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
           ..clear()
           ..addAll([
             for (var i = 0; i < candidates.length; i++)
-              if (!candidates[i].alreadyImported) i,
+              // الرسائل "ممكن مكرر" مش محدّدة افتراضيًا (يشبه رسالة سجّلتها يدويًا) — المستخدم يحدّدها بنفسه إذا بدّه
+              if (!candidates[i].alreadyImported && !candidates[i].possibleDuplicate) i,
           ]);
         _stage = candidates.isEmpty ? _Stage.nothingFound : _Stage.ready;
       });
@@ -347,10 +348,39 @@ class _SmsImportScreenState extends ConsumerState<SmsImportScreen> {
                           }
                         }),
                 title: Text(candidate.note),
-                subtitle: Text(
-                  candidate.alreadyImported
-                      ? 'مستورد سابقًا'
-                      : dateFormat.format(candidate.receivedAt.toLocal()),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      candidate.alreadyImported
+                          ? 'مستورد سابقًا'
+                          : dateFormat.format(candidate.receivedAt.toLocal()),
+                    ),
+                    if (candidate.possibleDuplicate && !candidate.alreadyImported) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: TransactionTile.uncategorizedBadgeBackground,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.copy_all_outlined, size: 14, color: TransactionTile.uncategorizedBadgeForeground),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'ممكن مكرر: يشبه رسالة سجّلتها يدويًا. حدّدها فقط إذا بدك تستوردها.',
+                                style: const TextStyle(fontSize: 12, color: TransactionTile.uncategorizedBadgeForeground),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 secondary: Text(
                   '${isIncome ? '+' : '-'}${_formatAmount(candidate.amount)}',

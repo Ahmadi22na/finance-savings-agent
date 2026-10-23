@@ -4,9 +4,13 @@ from datetime import date
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.money import to_money
 from app.models.goal import Goal, GoalStatus
+from app.models.goal_movement import GoalMovement
 from app.models.user import User
 from app.schemas.goal import GoalCreate, GoalContribution, GoalReorderRequest
+from app.services import goal_ledger
+from app.services.goal_ledger import MovementKind
 
 
 def _current_month_key() -> str:
@@ -25,13 +29,17 @@ def _next_priority_for_user(db: Session, user: User) -> int:
     return (max_priority or 0) + 1
 
 
-def _apply_recurring_reset_if_needed(goal: Goal) -> bool:
+def apply_recurring_reset_if_needed(db: Session, goal: Goal) -> bool:
     """
     Lazy Reset لخطط "المصاريف الثابتة الشهرية" (is_recurring): ما في مهمة
     خلفية دايمة الاشتغال بالمشروع، فبدل هيك كل مرة نقرأ فيها الخطة، نفحص
     إذا الشهر الحالي مختلف عن آخر شهر انفحصت فيه. لو كانت وصلت لهدفها
     (ACHIEVED) بشهر سابق، نرجعها نشطة بـ current_amount=0 — جاهزة تلقائيًا
     للشهر الجديد. بيرجع True لو فعليًا غيّر شي (عشان نعرف نعمل commit).
+
+    الدفعة 0.C: التصفير صار حركة cycle_reset سالبة بسجل الأهداف (بدل ما نكتب 0 مباشرة)،
+    فمجموع الحركات يضل = current_amount. وبنقفل صف الهدف ونعيد الفحص قبل التطبيق، حتى لو
+    قراءتان متزامنتان لنفس الهدف ما بيصير تصفير مرتين. ما بنعمل commit هون (مسؤولية المستدعي).
     """
     if not goal.is_recurring:
         return False
@@ -40,8 +48,14 @@ def _apply_recurring_reset_if_needed(goal: Goal) -> bool:
     if goal.last_reset_month == current_month:
         return False
 
+    db.refresh(goal, with_for_update=True)
+    if goal.last_reset_month == current_month:
+        return False  # طلب تاني سبقنا وعمل التصفير
+
     if goal.status == GoalStatus.ACHIEVED:
-        goal.current_amount = 0
+        leftover = to_money(goal.current_amount or 0)
+        if leftover != 0:
+            goal_ledger.record(db, goal, -leftover, MovementKind.CYCLE_RESET)  # بدورة الشهر القديم
         goal.status = GoalStatus.ACTIVE
 
     goal.last_reset_month = current_month
@@ -75,7 +89,7 @@ def list_goals_for_user(db: Session, user: User) -> list[Goal]:
 
     any_changed = False
     for goal in goals:
-        if _apply_recurring_reset_if_needed(goal):
+        if apply_recurring_reset_if_needed(db, goal):
             any_changed = True
 
     if any_changed:
@@ -118,14 +132,42 @@ def get_goal_or_404(db: Session, user: User, goal_id: uuid.UUID) -> Goal:
     goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == user.id).first()
     if goal is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الهدف غير موجود")
-    if _apply_recurring_reset_if_needed(goal):
+    if apply_recurring_reset_if_needed(db, goal):
         db.commit()
         db.refresh(goal)
     return goal
 
 
-def contribute_to_goal(db: Session, user: User, goal_id: uuid.UUID, data: GoalContribution) -> Goal:
-    goal = get_goal_or_404(db, user, goal_id)
+def lock_goal_or_404(db: Session, user: User, goal_id: uuid.UUID) -> Goal:
+    """يقفل الهدف FOR UPDATE (بقيمه الحالية من القاعدة) ويطبّق تصفير الدورة لو لزم — بدون commit."""
+    goal = (
+        db.query(Goal)
+        .filter(Goal.id == goal_id, Goal.user_id == user.id)
+        .populate_existing()
+        .with_for_update()
+        .first()
+    )
+    if goal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الهدف غير موجود")
+    apply_recurring_reset_if_needed(db, goal)
+    return goal
+
+
+def apply_contribution(
+    db: Session,
+    user: User,
+    goal_id: uuid.UUID,
+    amount,
+    kind: MovementKind,
+    transaction_id: uuid.UUID | None = None,
+    goal: Goal | None = None,
+) -> Goal:
+    """
+    البوابة الوحيدة لزيادة مبلغ هدف (مساهمة يدوية / توزيع دخل / موافقة اقتراح رشيد): قفل الصف، شرط الهدف النشط،
+    حركة بالسجل، تحديث الحالة. بدون commit — المستدعي بيقرر (التوزيع بيجمّع كل البنود بـ commit واحد).
+    goal: لو المستدعي قفل الهدف أصلاً بيمرره هون (ما بنعيد القفل).
+    """
+    goal = goal if goal is not None else lock_goal_or_404(db, user, goal_id)
 
     if goal.status != GoalStatus.ACTIVE:
         raise HTTPException(
@@ -133,12 +175,20 @@ def contribute_to_goal(db: Session, user: User, goal_id: uuid.UUID, data: GoalCo
             detail="ما بتقدر تضيف مبلغ لهدف مو نشط (منجز أو متروك)",
         )
 
-    goal.current_amount = float(goal.current_amount) + data.amount
+    goal_ledger.record(db, goal, to_money(amount), kind, transaction_id)
 
-    if float(goal.current_amount) >= float(goal.target_amount):
+    if to_money(goal.current_amount) >= to_money(goal.target_amount):
         goal.status = GoalStatus.ACHIEVED
+    return goal
 
-    db.commit()
+
+def contribute_to_goal(db: Session, user: User, goal_id: uuid.UUID, data: GoalContribution) -> Goal:
+    try:
+        goal = apply_contribution(db, user, goal_id, data.amount, MovementKind.MANUAL_CONTRIBUTION)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(goal)
     return goal
 
@@ -150,5 +200,6 @@ def delete_goal(db: Session, user: User, goal_id: uuid.UUID) -> None:
     مستقلتين أصلاً بالتصميم الحالي).
     """
     goal = get_goal_or_404(db, user, goal_id)
+    db.query(GoalMovement).filter(GoalMovement.goal_id == goal.id).delete(synchronize_session=False)
     db.delete(goal)
     db.commit()
