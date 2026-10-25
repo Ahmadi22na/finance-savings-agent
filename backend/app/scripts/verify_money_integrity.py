@@ -45,6 +45,7 @@ def main() -> int:
 
         tables = set(inspect(conn).get_table_names())
         has_movements = "goal_movements" in tables
+        has_accounts = "financial_accounts" in tables
 
         def scalar(sql):
             return conn.execute(text(sql)).scalar()
@@ -67,6 +68,10 @@ def main() -> int:
         summary["goal_movements_table"] = has_movements
         if has_movements:
             summary["goal_movements"] = scalar("SELECT COUNT(*) FROM goal_movements")
+        if has_accounts:
+            summary["financial_accounts"] = scalar("SELECT COUNT(*) FROM financial_accounts")
+            summary["account_balance_snapshots"] = scalar("SELECT COUNT(*) FROM account_balance_snapshots")
+            summary["transactions_with_account"] = scalar("SELECT COUNT(*) FROM transactions WHERE account_id IS NOT NULL")
 
         def check(bucket, label, sql):
             found = rows(sql)
@@ -96,6 +101,21 @@ def main() -> int:
                 LEFT JOIN goal_movements m ON m.goal_id = g.id
                 GROUP BY g.id, g.current_amount
                 HAVING g.current_amount <> COALESCE(SUM(m.amount),0)""")
+
+        if has_accounts:
+            check(failures, "معاملة مربوطة بحساب مستخدم آخر", """
+                SELECT t.id, t.user_id, a.user_id FROM transactions t
+                JOIN financial_accounts a ON a.id = t.account_id WHERE a.user_id <> t.user_id""")
+            check(failures, "لقطة رصيد بدون حساب (يتيمة)", """
+                SELECT s.id, s.account_id FROM account_balance_snapshots s
+                LEFT JOIN financial_accounts a ON a.id = s.account_id WHERE a.id IS NULL""")
+            check(failures, "اسم حساب مكرر لنفس المستخدم (بدون حساسية للأحرف)", """
+                SELECT user_id, lower(name), COUNT(*) FROM financial_accounts
+                GROUP BY user_id, lower(name) HAVING COUNT(*) > 1""")
+            check(failures, "لقطة رصيد بوقت مستقبلي بعيد", """
+                SELECT id, account_id, as_of FROM account_balance_snapshots
+                WHERE as_of > now() + interval '1 day'""" if engine.dialect.name == "postgresql" else """
+                SELECT id, account_id, as_of FROM account_balance_snapshots WHERE 1 = 0""")
 
         # ---- WARN ----
         check(warnings, "هدف current_amount أكبر من الهدف (contribute اليدوي بدون سقف)",

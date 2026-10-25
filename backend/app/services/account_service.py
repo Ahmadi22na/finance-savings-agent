@@ -15,6 +15,7 @@ from app.models.agent import AgentAction, AgentInteraction
 from app.models.active_day import UserActiveDay
 from app.models.ai_usage import AiUsageEvent
 from app.models.category import Category
+from app.models.financial_account import AccountBalanceSnapshot, FinancialAccount
 from app.models.goal import Goal
 from app.models.goal_movement import GoalMovement
 from app.models.income_allocation import IncomeAllocation
@@ -46,6 +47,12 @@ def delete_account(db: Session, user: User, password: str) -> None:
         db.query(UserActiveDay).filter(UserActiveDay.user_id == user_id).delete(synchronize_session=False)
         db.query(PersonaFeedback).filter(PersonaFeedback.user_id == user_id).delete(synchronize_session=False)
         db.query(Transaction).filter(Transaction.user_id == user_id).delete(synchronize_session=False)
+        # الحسابات المالية بعد المعاملات (المعاملات هي اللي بتشير للحساب)، ولقطاتها قبلها
+        user_accounts = select(FinancialAccount.id).where(FinancialAccount.user_id == user_id)
+        db.query(AccountBalanceSnapshot).filter(AccountBalanceSnapshot.account_id.in_(user_accounts)).delete(
+            synchronize_session=False
+        )
+        db.query(FinancialAccount).filter(FinancialAccount.user_id == user_id).delete(synchronize_session=False)
         db.query(Goal).filter(Goal.user_id == user_id).delete(synchronize_session=False)
         db.query(Category).filter(Category.user_id == user_id).delete(synchronize_session=False)  # التصنيفات الخاصة فقط
         db.query(User).filter(User.id == user_id).delete(synchronize_session=False)

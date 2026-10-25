@@ -72,5 +72,11 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     external_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # الحساب المالي (اختياري، المرحلة 1): المعاملات القديمة تبقى NULL ولا تدخل بأي رصيد محسوب. بدون ondelete:
+    # ما بنسمح بحذف حساب مستخدَم (بيتأرشف). الفهرس لحساب الرصيد.
+    account_id: Mapped[UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("financial_accounts.id"), nullable=True, index=True
+    )
+
     user: Mapped["User"] = relationship(back_populates="transactions")
     category: Mapped["Category | None"] = relationship(back_populates="transactions")

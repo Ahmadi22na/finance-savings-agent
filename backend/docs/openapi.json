@@ -1424,6 +1424,559 @@
         }
       }
     },
+    "/api/v1/accounts": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "قائمة الحسابات المالية",
+        "description": "يرجّع حسابات المستخدم النشطة (ومعها المؤرشفة إذا `include_archived=true`) مع الرصيد التقديري وجودته. الرصيد = آخر لقطة رصيد + معاملات الحساب التي وقتها بعد وقت اللقطة تمامًا (المعاملة التي وقتها يساوي وقت اللقطة، أو أقدم منه، لا تُحسب لأن اللقطة تشملها؛ `ignored_before_snapshot` يعدّ المعاملات التي سُجّلت بعد اللقطة بتاريخ أقدم منها). حساب بدون لقطة رصيده `null` (غير معروف) وليس صفرًا. المعاملات بدون حساب لا تدخل أي رصيد.",
+        "operationId": "list_accounts_api_v1_accounts_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Include Archived"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccountOut"
+                  },
+                  "title": "Response List Accounts Api V1 Accounts Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "إنشاء حساب مالي",
+        "description": "ينشئ حسابًا يدويًا (cash أو bank أو wallet) بعملة JOD. `opening_balance` اختياري: يُسجَّل كلقطة مرجعية بوقت الإنشاء، وبدونه يبقى الرصيد غير معروف. الاسم فريد لكل مستخدم بدون حساسية لحالة الأحرف. الرصيد السالب مسموح.",
+        "operationId": "create_account_api_v1_accounts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "عندك حساب بنفس الاسم.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/summary": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "ملخص الحسابات",
+        "description": "مجموع أرصدة الحسابات النشطة ذات الرصيد المعروف فقط. إذا `incomplete=true` (في حساب بدون رصيد أو رصيده قديم) فالمجموع ناقص أو قديم ولا يُعرض كأنه مؤكد.",
+        "operationId": "accounts_summary_api_v1_accounts_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountsSummaryOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/accounts/{account_id}": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "تفاصيل حساب",
+        "description": "يرجّع حسابًا واحدًا مع رصيده وجودته. الرصيد = آخر لقطة رصيد + معاملات الحساب التي وقتها بعد وقت اللقطة تمامًا (المعاملة التي وقتها يساوي وقت اللقطة، أو أقدم منه، لا تُحسب لأن اللقطة تشملها؛ `ignored_before_snapshot` يعدّ المعاملات التي سُجّلت بعد اللقطة بتاريخ أقدم منها). حساب بدون لقطة رصيده `null` (غير معروف) وليس صفرًا. المعاملات بدون حساب لا تدخل أي رصيد.",
+        "operationId": "get_account_api_v1_accounts__account_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الحساب غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "تعديل حساب",
+        "description": "تعديل جزئي للاسم أو النوع أو `is_active`. `is_active=false` يؤرشف الحساب: لا يستقبل لقطات جديدة ويبقى سجله ولقطاته للمراجعة؛ `true` يعيد تفعيله. لازم ترسل حقلاً واحدًا على الأقل ولا يقبل null.",
+        "operationId": "update_account_api_v1_accounts__account_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الحساب غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "عندك حساب بنفس الاسم.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "حذف حساب",
+        "description": "يحذف الحساب نهائيًا فقط إذا ما عليه أي معاملة ولا لقطة رصيد. غير هيك يرجع 409 والمطلوب أرشفته (`PATCH` مع `is_active=false`) حفاظًا على السجل التاريخي.",
+        "operationId": "delete_account_api_v1_accounts__account_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الحساب غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "الحساب عليه معاملات أو لقطات رصيد؛ أرشفه بدل الحذف.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{account_id}/balance": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "تسجيل رصيد الحساب (لقطة)",
+        "description": "يضيف لقطة رصيد مرجعية: «رصيد هذا الحساب كان كذا بوقت as_of» (الافتراضي الآن، ولا يقبل المستقبل). اللقطات إضافة فقط والقديمة تبقى للمراجعة. الحساب المؤرشف لا يقبل لقطات جديدة. الرصيد = آخر لقطة رصيد + معاملات الحساب التي وقتها بعد وقت اللقطة تمامًا (المعاملة التي وقتها يساوي وقت اللقطة، أو أقدم منه، لا تُحسب لأن اللقطة تشملها؛ `ignored_before_snapshot` يعدّ المعاملات التي سُجّلت بعد اللقطة بتاريخ أقدم منها). حساب بدون لقطة رصيده `null` (غير معروف) وليس صفرًا. المعاملات بدون حساب لا تدخل أي رصيد.",
+        "operationId": "add_balance_snapshot_api_v1_accounts__account_id__balance_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceSnapshotCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "الحساب مؤرشف، أو وقت الرصيد بالمستقبل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الحساب غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{account_id}/snapshots": {
+      "get": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "سجل لقطات رصيد الحساب",
+        "description": "آخر 50 لقطة رصيد للحساب (الأحدث أولاً)، يشمل الحسابات المؤرشفة.",
+        "operationId": "list_snapshots_api_v1_accounts__account_id__snapshots_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceSnapshotOut"
+                  },
+                  "title": "Response List Snapshots Api V1 Accounts  Account Id  Snapshots Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "التوكن ناقص أو غير صالح أو منتهي الصلاحية، أو المستخدم غير موجود/غير مفعّل.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "الحساب غير موجود.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/personas": {
       "get": {
         "tags": [
@@ -1934,6 +2487,66 @@
   },
   "components": {
     "schemas": {
+      "AccountCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Name",
+            "description": "اسم الحساب (فريد لكل مستخدم بدون حساسية لحالة الأحرف)"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "bank",
+              "wallet"
+            ],
+            "title": "Kind",
+            "description": "نوع الحساب: cash أو bank أو wallet"
+          },
+          "opening_balance": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                  }
+                ],
+                "decimal_places": 3,
+                "max_digits": 14
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opening Balance",
+            "description": "رصيد حالي اختياري: يُسجَّل كلقطة مرجعية بوقت الإنشاء. بدونه يبقى رصيد الحساب غير معروف (unknown)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind"
+        ],
+        "title": "AccountCreate",
+        "examples": [
+          {
+            "kind": "cash",
+            "name": "محفظة الجيب",
+            "opening_balance": 35.5
+          },
+          {
+            "kind": "bank",
+            "name": "حساب الراتب"
+          }
+        ]
+      },
       "AccountDeleteRequest": {
         "properties": {
           "password": {
@@ -1961,6 +2574,224 @@
             "password": "Passw0rd!"
           }
         ]
+      },
+      "AccountOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "cash",
+              "bank",
+              "wallet"
+            ],
+            "title": "Kind"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency",
+            "description": "دايمًا JOD حاليًا"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "description": "false = حساب مؤرشف (لا يستقبل معاملات ولا لقطات جديدة، ويبقى سجله للمراجعة)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "balance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance",
+            "description": "الرصيد التقديري = آخر لقطة + معاملات الحساب التي وقتها بعد وقت اللقطة تمامًا. null إذا ما في لقطة."
+          },
+          "balance_quality": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "manual_confirmed",
+              "derived",
+              "stale"
+            ],
+            "title": "Balance Quality",
+            "description": "unknown: ما في لقطة. manual_confirmed: لقطة حديثة وما في معاملات بعدها. derived: لقطة حديثة + معاملات بعدها (تقدير يفترض اكتمال التسجيل). stale: آخر لقطة أقدم من 30 يوم."
+          },
+          "balance_as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Balance As Of",
+            "description": "وقت آخر لقطة رصيد (null إذا ما في)"
+          },
+          "last_snapshot_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Snapshot Amount",
+            "description": "مبلغ آخر لقطة"
+          },
+          "transactions_since_snapshot": {
+            "type": "integer",
+            "title": "Transactions Since Snapshot",
+            "description": "عدد المعاملات المحسوبة بعد اللقطة"
+          },
+          "ignored_before_snapshot": {
+            "type": "integer",
+            "title": "Ignored Before Snapshot",
+            "description": "عدد معاملات الحساب التي سُجّلت بعد اللقطة لكن وقتها أقدم منها (أو يساويها): لا تُحسب بالرصيد لأن اللقطة تُعتبر شاملة لها. نبّه المستخدم لو > 0."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "currency",
+          "is_active",
+          "created_at",
+          "balance",
+          "balance_quality",
+          "balance_as_of",
+          "last_snapshot_amount",
+          "transactions_since_snapshot",
+          "ignored_before_snapshot"
+        ],
+        "title": "AccountOut"
+      },
+      "AccountUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "الاسم الجديد"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "cash",
+                  "bank",
+                  "wallet"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "النوع الجديد"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active",
+            "description": "false = أرشفة الحساب، true = إعادة تفعيله"
+          }
+        },
+        "type": "object",
+        "title": "AccountUpdate",
+        "description": "تعديل جزئي: الحقل غير المُرسَل لا يتغيّر. لازم حقل واحد على الأقل، ولا يقبل null.",
+        "examples": [
+          {
+            "is_active": false,
+            "name": "حساب الراتب (القديم)"
+          }
+        ]
+      },
+      "AccountsSummaryOut": {
+        "properties": {
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total",
+            "description": "مجموع أرصدة الحسابات النشطة ذات الرصيد المعروف. null إذا ولا حساب معروف."
+          },
+          "accounts_total": {
+            "type": "integer",
+            "title": "Accounts Total",
+            "description": "عدد الحسابات النشطة"
+          },
+          "accounts_counted": {
+            "type": "integer",
+            "title": "Accounts Counted",
+            "description": "عدد الحسابات المحسوبة بالمجموع (رصيدها معروف)"
+          },
+          "has_unknown": {
+            "type": "boolean",
+            "title": "Has Unknown",
+            "description": "يوجد حساب نشط بدون لقطة رصيد (غير معروف)"
+          },
+          "has_stale": {
+            "type": "boolean",
+            "title": "Has Stale",
+            "description": "يوجد حساب رصيده قديم (stale)"
+          },
+          "incomplete": {
+            "type": "boolean",
+            "title": "Incomplete",
+            "description": "true = المجموع ناقص أو قديم؛ لا تعرضه كأنه مؤكد"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "accounts_total",
+          "accounts_counted",
+          "has_unknown",
+          "has_stale",
+          "incomplete"
+        ],
+        "title": "AccountsSummaryOut"
       },
       "AgentActionOut": {
         "properties": {
@@ -2036,6 +2867,89 @@
           "suggest_income_log"
         ],
         "title": "AgentActionType"
+      },
+      "BalanceSnapshotCreate": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Amount",
+            "description": "رصيد الحساب الفعلي بوقت as_of (قد يكون سالبًا)",
+            "decimal_places": 3,
+            "max_digits": 14
+          },
+          "as_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of",
+            "description": "وقت الرصيد. الافتراضي: الآن. لا يقبل وقتًا بالمستقبل."
+          }
+        },
+        "type": "object",
+        "required": [
+          "amount"
+        ],
+        "title": "BalanceSnapshotCreate",
+        "examples": [
+          {
+            "amount": 120.75
+          },
+          {
+            "amount": -15,
+            "as_of": "2026-10-20T09:00:00Z"
+          }
+        ]
+      },
+      "BalanceSnapshotOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "amount": {
+            "type": "number",
+            "title": "Amount"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "title": "As Of"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "manual حاليًا"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "amount",
+          "as_of",
+          "source",
+          "created_at"
+        ],
+        "title": "BalanceSnapshotOut"
       },
       "Body_scan_receipt_api_v1_transactions_scan_receipt_post": {
         "properties": {
@@ -3645,6 +4559,10 @@
     {
       "name": "Goals",
       "description": "الأهداف المالية (الخطط). تدعم الأولويات، والأهداف الشهرية المتكررة (مصاريف ثابتة تُصفَّر تلقائيًا كل شهر بعد اكتمالها)."
+    },
+    {
+      "name": "Accounts",
+      "description": "الحسابات المالية اليدوية (كاش، بنك، محفظة) ولقطات رصيدها. اختيارية بالكامل: التطبيق يعمل بدونها. الرصيد = آخر لقطة يدخلها المستخدم + حركة المعاملات المرتبطة بالحساب بعد وقت اللقطة، ومعه دايمًا جودة البيانات (unknown / manual_confirmed / derived / stale). لا ربط مصرفي فعلي."
     },
     {
       "name": "Transactions",

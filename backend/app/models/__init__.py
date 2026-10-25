@@ -10,6 +10,7 @@ from app.models.goal import Goal, GoalStatus  # noqa: F401
 from app.models.transaction import Transaction, TransactionType, TransactionSource  # noqa: F401
 from app.models.income_allocation import IncomeAllocation  # noqa: F401
 from app.models.goal_movement import GoalMovement  # noqa: F401
+from app.models.financial_account import FinancialAccount, AccountBalanceSnapshot  # noqa: F401
 from app.models.ai_usage import AiUsageEvent, AiUsageKind  # noqa: F401
 from app.models.active_day import UserActiveDay  # noqa: F401
 from app.models.persona_feedback import PersonaFeedback  # noqa: F401

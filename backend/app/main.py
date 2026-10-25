@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.log_safety import install_log_redaction
 from app.config import settings
 from app.api.docs import APP_DESCRIPTION, TAGS_METADATA
-from app.api.routes import auth, users, categories, transactions, goals, personas, onboarding, agent
+from app.api.routes import auth, users, categories, transactions, goals, personas, onboarding, agent, financial_accounts
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -38,6 +38,7 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")
 app.include_router(transactions.router, prefix="/api/v1")
 app.include_router(goals.router, prefix="/api/v1")
+app.include_router(financial_accounts.router, prefix="/api/v1")
 app.include_router(personas.router, prefix="/api/v1")
 app.include_router(onboarding.router, prefix="/api/v1")
 app.include_router(agent.router, prefix="/api/v1")
