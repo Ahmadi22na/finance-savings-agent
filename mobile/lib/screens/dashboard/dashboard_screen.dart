@@ -4,11 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
 import '../../core/agent_action_providers.dart';
+import '../../core/financial_account_providers.dart';
+import '../../core/transfer_grouping.dart';
+import '../../models/financial_account.dart';
 import '../../models/goal.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/goal_progress_card.dart';
 import '../../widgets/transaction_category_sheet.dart';
 import '../../widgets/transaction_tile.dart';
+import '../../widgets/transfer_tile.dart';
 import '../account/account_screen.dart';
 import '../quick_log/quick_log_screen.dart';
 import '../chat/chat_screen.dart';
@@ -151,13 +155,30 @@ class DashboardScreen extends ConsumerWidget {
                     child: Text('ما في معاملات مسجّلة بعد', style: TextStyle(color: AppColors.secondaryText)),
                   );
                 }
+                // أسماء الحسابات (اختيارية): لو فشل التحميل أو ما في حسابات، السطور بتضل مثل ما كانت بالضبط
+                final directory = ref.watch(accountDirectoryProvider).valueOrNull ?? const <String, FinancialAccount>{};
                 return Column(
-                  children: transactions
-                      .map((t) => TransactionTile(
-                            transaction: t,
-                            onTap: () => showTransactionCategorySheet(context, t),
-                          ))
-                      .toList(),
+                  children: groupTransfers(transactions).map((entry) {
+                    final transfer = entry.transfer;
+                    if (transfer != null) {
+                      final fromName = directory[transfer.fromAccountId]?.name;
+                      final toName = directory[transfer.toAccountId]?.name;
+                      return TransferTile(
+                        entry: transfer,
+                        fromName: fromName,
+                        toName: toName,
+                        onTap: () => showTransferActionsSheet(context, transfer, fromName: fromName, toName: toName),
+                      );
+                    }
+                    final t = entry.transaction!;
+                    final account = t.accountId == null ? null : directory[t.accountId];
+                    return TransactionTile(
+                      transaction: t,
+                      accountName: account?.name,
+                      accountArchived: account != null && !account.isActive,
+                      onTap: () => showTransactionCategorySheet(context, t),
+                    );
+                  }).toList(),
                 );
               },
             ),

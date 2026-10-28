@@ -7,6 +7,8 @@ import '../core/providers.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
 import '../theme/icon_mapper.dart';
+import '../core/financial_account_providers.dart';
+import 'account_picker.dart';
 import 'transaction_edit_sheet.dart';
 import 'transaction_tile.dart';
 import '../theme/app_theme.dart';
@@ -42,7 +44,37 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
 
   Future<void> _openEdit() async {
     final saved = await showTransactionEditSheet(context, widget.transaction);
-    if (saved == true && mounted) Navigator.of(context).pop();
+    if (saved == true && mounted) {
+      refreshFinancialAccounts(ref); // المبلغ والتاريخ بيغيّروا رصيد الحساب المرتبطة فيه
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _moveAccount() async {
+    final transaction = widget.transaction;
+    final choice = await showAccountChoiceSheet(context, currentAccountId: transaction.accountId);
+    if (choice == null || !mounted || choice.accountId == transaction.accountId) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(transactionServiceProvider).moveToAccount(transaction.id, choice.accountId);
+      ref.invalidate(recentTransactionsProvider);
+      refreshFinancialAccounts(ref);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      messenger.showSnackBar(SnackBar(
+        content: Text(choice.accountId == null ? 'تم فك ربط المعاملة بالحساب' : 'تم ربط المعاملة بالحساب ✅'),
+      ));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      messenger.showSnackBar(const SnackBar(content: Text('ما قدرنا ننفّذ الطلب، جرب كمان شوي')));
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -80,6 +112,7 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
       await ref.read(transactionServiceProvider).deleteTransaction(transaction.id);
       ref.invalidate(recentTransactionsProvider);
       ref.invalidate(goalsListProvider); // مبالغ الأهداف ممكن تتغيّر بعد عكس التوزيع
+      refreshFinancialAccounts(ref); // وأرصدة الحسابات لو كانت مرتبطة بحساب
       if (!mounted) return;
       Navigator.of(context).pop();
       messenger.showSnackBar(const SnackBar(content: Text('تم حذف المعاملة')));
@@ -120,6 +153,9 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
 
   @override
   Widget build(BuildContext context) {
+    // زر الربط/النقل بيظهر بس لمن عنده حساب نشط، أو لمعاملة مرتبطة أصلاً بحساب (عشان يقدر يفك الربط)
+    final hasActiveAccounts = ref.watch(activeAccountsProvider).maybeWhen(data: (list) => list.isNotEmpty, orElse: () => false);
+    final canMoveAccount = hasActiveAccounts || widget.transaction.accountId != null;
     final transaction = widget.transaction;
     final categoriesAsync = ref.watch(categoriesListProvider);
     final isAuto = transaction.categoryOrigin == 'auto';
@@ -183,6 +219,17 @@ class _TransactionCategorySheetState extends ConsumerState<_TransactionCategoryS
                 label: const Text('تعديل المبلغ والملاحظة'),
               ),
             ),
+            if (canMoveAccount) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isSaving ? null : _moveAccount,
+                  icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+                  label: Text(widget.transaction.accountId == null ? 'ربط بحساب مالي' : 'نقل لحساب آخر / فك الربط'),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,

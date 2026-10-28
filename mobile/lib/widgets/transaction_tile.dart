@@ -11,7 +11,19 @@ class TransactionTile extends StatelessWidget {
   final Transaction transaction;
   final VoidCallback? onTap;
 
-  const TransactionTile({super.key, required this.transaction, this.onTap});
+  /// اسم الحساب المالي المرتبطة به المعاملة (اختياري). بدون حسابات بيضل السطر نفسه بالضبط.
+  final String? accountName;
+  final bool accountArchived;
+
+  const TransactionTile({
+    super.key,
+    required this.transaction,
+    this.onTap,
+    this.accountName,
+    this.accountArchived = false,
+  });
+
+  static String _shorten(String name) => name.length <= 22 ? name : '${name.substring(0, 21)}…';
 
   // ألوان بتحقق تباين WCAG AA (≥ 4.5:1) على خلفياتها — مغطّاة باختبار test/accessibility_test.dart
   static const Color incomeColor = Color(0xFF2E7D32);
@@ -85,6 +97,13 @@ class TransactionTile extends StatelessWidget {
                 background: neutralBadgeBackground,
                 foreground: neutralBadgeForeground,
               ),
+              if (accountName != null)
+                _MiniBadge(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: accountArchived ? '${_shorten(accountName!)} (مؤرشف)' : _shorten(accountName!),
+                  background: neutralBadgeBackground,
+                  foreground: neutralBadgeForeground,
+                ),
               if (isAuto)
                 _MiniBadge(
                   icon: Icons.auto_awesome,

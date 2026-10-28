@@ -11,6 +11,7 @@ import '../../widgets/account_balance_sheet.dart';
 import '../../widgets/account_snapshots_sheet.dart';
 import '../../widgets/financial_account_form_sheet.dart';
 import '../../widgets/transaction_tile.dart';
+import '../../widgets/transfer_sheet.dart';
 
 String _messageOf(Object error) => error is ApiException ? error.message : 'صار خطأ غير متوقع، جرب كمان شوي';
 
@@ -37,9 +38,19 @@ class FinancialAccountsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(financialAccountsProvider);
     final showArchived = ref.watch(showArchivedAccountsProvider);
+    final activeCount = ref.watch(activeAccountsProvider).maybeWhen(data: (list) => list.length, orElse: () => 0);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('حساباتي المالية')),
+      appBar: AppBar(
+        title: const Text('حساباتي المالية'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'تحويل بين حسابين',
+            onPressed: () => _transfer(context, ref, activeCount),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _addAccount(context, ref),
         icon: const Icon(Icons.add),
@@ -84,6 +95,19 @@ class FinancialAccountsScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _transfer(BuildContext context, WidgetRef ref, int activeCount) async {
+    if (activeCount < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لازم يكون عندك حسابين مفعّلين على الأقل عشان تعمل تحويل')),
+      );
+      return;
+    }
+    final saved = await showTransferSheet(context);
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم التحويل ✅')));
+    }
   }
 
   Future<void> _addAccount(BuildContext context, WidgetRef ref) async {

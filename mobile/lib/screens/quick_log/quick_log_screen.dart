@@ -6,10 +6,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/providers.dart';
 import '../../core/dashboard_providers.dart';
+import '../../core/financial_account_providers.dart';
 import '../../core/api_client.dart';
 import '../../models/category.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/icon_mapper.dart';
+import '../../widgets/account_picker.dart';
 import '../../widgets/income_allocation_sheet.dart';
 
 class QuickLogScreen extends ConsumerStatefulWidget {
@@ -27,11 +29,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
   bool _isSubmitting = false;
   bool _isScanning = false;
   String _source = 'manual'; // manual | ocr | sms — بيتحدد حسب مصدر المسودة الي راجعها المستخدم
+  String? _accountId; // الحساب المالي (اختياري)؛ بيبدأ بآخر حساب انختار بنفس جلسة التطبيق
 
   @override
   void initState() {
     super.initState();
 
+    _accountId = ref.read(lastQuickLogAccountIdProvider);
     _amountController.addListener(() => setState(() {}));
     _noteController.addListener(() {
 
@@ -233,11 +237,14 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
         categoryId: _selectedCategory?.id,
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
         source: _source,
+        accountId: _accountId,
       );
 
 
       ref.invalidate(goalsListProvider);
       ref.invalidate(recentTransactionsProvider);
+      ref.read(lastQuickLogAccountIdProvider.notifier).state = _accountId;
+      if (_accountId != null) refreshFinancialAccounts(ref); // رصيد الحساب تغيّر
 
       if (!mounted) return;
 
@@ -425,6 +432,13 @@ class _QuickLogScreenState extends ConsumerState<QuickLogScreen> {
               decoration: const InputDecoration(
                 hintText: 'مثال: قهوة مع صاحبي',
               ),
+            ),
+
+            // بيظهر فقط لمن عنده حساب مالي نشط، وبدونه الشاشة نفسها بالضبط
+            const SizedBox(height: 16),
+            QuickLogAccountPicker(
+              selectedId: _accountId,
+              onChanged: (id) => setState(() => _accountId = id),
             ),
 
             const SizedBox(height: 32),

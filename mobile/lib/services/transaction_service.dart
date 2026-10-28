@@ -33,6 +33,7 @@ class TransactionService {
     String? categoryId,
     String? note,
     String source = 'manual',
+    String? accountId,
   }) async {
     try {
       final response = await _apiClient.dio.post('/transactions/quick-log', data: {
@@ -41,6 +42,20 @@ class TransactionService {
         if (categoryId != null) 'category_id': categoryId,
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
         if (source != 'manual') 'source': source,
+        if (accountId != null) 'account_id': accountId,
+      });
+      return Transaction.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  /// ربط معاملة بحساب مالي نشط أو نقلها لحساب آخر، أو فك الربط (accountId = null). ما بيتغيّر شي ثاني بالمعاملة.
+  /// السيرفر بيرفض الحساب المؤرشف أو الغريب، وبيرفض تغيير حساب طرف تحويل.
+  Future<Transaction> moveToAccount(String transactionId, String? accountId) async {
+    try {
+      final response = await _apiClient.dio.patch('/transactions/$transactionId', data: {
+        'account_id': accountId,
       });
       return Transaction.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {

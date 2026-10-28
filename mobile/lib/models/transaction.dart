@@ -14,6 +14,9 @@ class Transaction {
   final double unallocatedAmount;
   final String? categoryOrigin; // user | auto | null
   final double? categoryConfidence; // 0..1 عندما يكون التصنيف تلقائيًا
+  final String? accountId; // الحساب المالي المرتبطة به (اختياري)
+  final bool isTransfer; // طرف من تحويل داخلي بين حسابين (مش دخل ولا مصروف حقيقي)
+  final String? transferGroupId; // طرفا التحويل يشتركان فيه
 
   Transaction({
     required this.id,
@@ -28,6 +31,9 @@ class Transaction {
     required this.unallocatedAmount,
     this.categoryOrigin,
     this.categoryConfidence,
+    this.accountId,
+    this.isTransfer = false,
+    this.transferGroupId,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
@@ -46,6 +52,9 @@ class Transaction {
       unallocatedAmount: (json['unallocated_amount'] as num?)?.toDouble() ?? 0,
       categoryOrigin: json['category_origin'] as String?,
       categoryConfidence: (json['category_confidence'] as num?)?.toDouble(),
+      accountId: json['account_id'] as String?,
+      isTransfer: json['is_transfer'] as bool? ?? false,
+      transferGroupId: json['transfer_group_id'] as String?,
     );
   }
 }

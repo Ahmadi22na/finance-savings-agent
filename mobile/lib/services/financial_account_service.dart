@@ -103,6 +103,27 @@ class FinancialAccountService {
     }
   }
 
+  /// تحويل بين حسابين نشطين للمستخدم (معاملتان بعملية ذرّية بالسيرفر). occurredAt اختياري (الافتراضي: الآن).
+  Future<void> createTransfer({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    String? note,
+    DateTime? occurredAt,
+  }) async {
+    try {
+      await _apiClient.dio.post('/transfers', data: {
+        'from_account_id': fromAccountId,
+        'to_account_id': toAccountId,
+        'amount': amount,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+        if (occurredAt != null) 'occurred_at': occurredAt.toUtc().toIso8601String(),
+      });
+    } on DioException catch (e) {
+      throw _toException(e);
+    }
+  }
+
   Future<List<BalanceSnapshot>> listSnapshots(String accountId) async {
     try {
       final response = await _apiClient.dio.get('/accounts/$accountId/snapshots');
