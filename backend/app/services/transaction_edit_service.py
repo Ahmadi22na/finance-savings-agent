@@ -1,5 +1,5 @@
 """
-تعديل وحذف المعاملات مع الحفاظ على سلامة التوزيعات والأهداف — الدفعة 0.D.
+تعديل وحذف المعاملات مع الحفاظ على سلامة التوزيعات والأهداف والتحويلات — الدفعة 0.D + 1.B.
 
 قواعد:
 - كل عملية بقفل صف المعاملة FOR UPDATE وcommit واحد (كله أو ولا شي)؛ تعديل/حذف دخل بيتسلسل مع أي توزيع متزامن عليه.
@@ -7,6 +7,9 @@
 - قاعدة الدورة: عكس توزيع ما بيمس مبلغ الهدف إلا لو التوزيع من دورة الهدف الحالية (هدف متكرر انصفّر بشهر جديد
   بيضل مبلغه الحالي كما هو لو انحذف دخل شهر سابق). والمبلغ ما بينزل تحت الصفر أبدًا.
 - توزيعات قديمة (قبل 0.C) ما إلها حركة بالسجل: بنعتبرها من الدورة الحالية فقط للهدف غير المتكرر.
+- (1.B) طرف تحويل داخلي: بنقفل الطرفين سوا (بترتيب id ثابت)، والمبلغ/التاريخ/الملاحظة بتتعدّل على الطرفين، والحذف
+  بيحذف الطرفين، والتصنيف وتغيير الحساب مرفوضين. فما بيصير تحويل غير متوازن أبدًا.
+- (1.B) ربط/نقل معاملة عادية لحساب: حساب نشط يخص المستخدم (قفل مشترك)، أو null لفك الربط.
 """
 import uuid
 from decimal import Decimal
@@ -21,20 +24,69 @@ from app.models.income_allocation import IncomeAllocation
 from app.models.transaction import Transaction, TransactionType
 from app.models.user import User
 from app.schemas.transaction import TransactionUpdate
-from app.services import goal_ledger, goal_service, income_allocation_service, transaction_service
+from app.services import (
+    financial_account_service,
+    goal_ledger,
+    goal_service,
+    income_allocation_service,
+    transaction_service,
+)
 from app.services.goal_ledger import MovementKind
 
 ZERO = Decimal("0.000")
 
 
+def _lock_target(db: Session, user: User, transaction_id: uuid.UUID) -> tuple[Transaction, list[Transaction]]:
+    """
+    يقفل المعاملة (وطرفي التحويل سوا لو كانت تحويل) ويرجّع (المعاملة، كل أطراف مجموعتها).
+    بنقرأ المجموعة أول (بدون قفل) وبعدين بنقفل كل الأطراف بترتيب id واحد: طلبان متزامنان على طرفين مختلفين من نفس
+    التحويل ما بيعملوا deadlock، وما بيتعدّل طرف لحاله.
+    """
+    probe = (
+        db.query(Transaction.is_transfer, Transaction.transfer_group_id)
+        .filter(Transaction.id == transaction_id, Transaction.user_id == user.id)
+        .first()
+    )
+    if probe is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المعاملة غير موجودة")
+
+    if not probe.is_transfer:
+        transaction = income_allocation_service.lock_transaction_or_404(db, user, transaction_id)
+        return transaction, [transaction]
+
+    legs = (
+        db.query(Transaction)
+        .filter(Transaction.user_id == user.id, Transaction.transfer_group_id == probe.transfer_group_id)
+        .order_by(Transaction.id)
+        .populate_existing()
+        .with_for_update()
+        .all()
+    )
+    transaction = next((leg for leg in legs if leg.id == transaction_id), None)
+    if transaction is None:  # انحذف بين القراءة والقفل
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المعاملة غير موجودة")
+    return transaction, legs
+
+
 def update_transaction(db: Session, user: User, transaction_id: uuid.UUID, data: TransactionUpdate) -> Transaction:
     fields = data.model_fields_set
     try:
-        transaction = income_allocation_service.lock_transaction_or_404(db, user, transaction_id)
+        transaction, legs = _lock_target(db, user, transaction_id)
+
+        if transaction.is_transfer:
+            if "category_id" in fields:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="طرف التحويل بين الحسابات ما بيحمل تصنيف"
+                )
+            if "account_id" in fields:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="ما بتقدر تغيّر حساب طرف تحويل. احذف التحويل وأنشئه من جديد",
+                )
 
         if "amount" in fields:
             new_amount = to_money(data.amount)
-            if transaction.type == TransactionType.INCOME:
+            if transaction.type == TransactionType.INCOME and not transaction.is_transfer:
                 allocated = income_allocation_service.get_allocated_amount(db, transaction.id)
                 if new_amount < allocated:
                     raise HTTPException(
@@ -44,16 +96,27 @@ def update_transaction(db: Session, user: User, transaction_id: uuid.UUID, data:
                             "احذف المعاملة لعكس التوزيع ثم سجّلها من جديد"
                         ),
                     )
-            transaction.amount = new_amount
+            for leg in legs:  # لتحويل: الطرفين دايمًا بنفس المبلغ
+                leg.amount = new_amount
 
         if "occurred_at" in fields:
-            transaction.occurred_at = data.occurred_at
+            for leg in legs:
+                leg.occurred_at = data.occurred_at
 
         if "note" in fields:
-            transaction.note = (data.note or "").strip() or None
+            new_note = (data.note or "").strip() or None
+            for leg in legs:
+                leg.note = new_note
 
         if "category_id" in fields:
             transaction_service.set_category(db, user, transaction, data.category_id)
+
+        if "account_id" in fields and data.account_id != transaction.account_id:
+            if data.account_id is None:
+                transaction.account_id = None
+            else:
+                financial_account_service.lock_account_for_link(db, user, data.account_id)
+                transaction.account_id = data.account_id
 
         db.commit()
     except Exception:
@@ -65,7 +128,13 @@ def update_transaction(db: Session, user: User, transaction_id: uuid.UUID, data:
 
 def delete_transaction(db: Session, user: User, transaction_id: uuid.UUID) -> None:
     try:
-        transaction = income_allocation_service.lock_transaction_or_404(db, user, transaction_id)
+        transaction, legs = _lock_target(db, user, transaction_id)
+
+        if transaction.is_transfer:
+            for leg in legs:  # الطرفين سوا، دايمًا
+                db.delete(leg)
+            db.commit()
+            return
 
         if transaction.type == TransactionType.INCOME:
             _reverse_allocations(db, user, transaction)

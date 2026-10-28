@@ -57,6 +57,48 @@ def _get_or_404(db: Session, user: User, account_id: uuid.UUID, lock: bool = Fal
     return account
 
 
+def lock_account_for_link(db: Session, user: User, account_id: uuid.UUID, lock: bool = True) -> FinancialAccount:
+    """
+    للمعاملات/التحويلات اللي بتنربط بحساب: الحساب لازم يخص المستخدم (غير هيك 404، بما فيها حقن account_id غريب)
+    ولازم يكون نشط (المؤرشف 400). القفل مشترك (FOR SHARE): ربطات متزامنة ما بتعطّل بعضها، بس بتمنع حذف/أرشفة/لقطة
+    على نفس الحساب (اللي بتاخد FOR UPDATE) تدخل بنص عملية الربط.
+    lock=False: تحقق مبكر بدون قفل (قبل أي شغل غالي زي استدعاء الذكاء الاصطناعي).
+    """
+    query = db.query(FinancialAccount).filter(FinancialAccount.id == account_id, FinancialAccount.user_id == user.id)
+    if lock:
+        query = query.populate_existing().with_for_update(read=True)
+    account = query.first()
+    if account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الحساب غير موجود")
+    if not account.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="هذا الحساب مؤرشف ولا يستقبل حركات جديدة. أعد تفعيله أولاً.",
+        )
+    return account
+
+
+def lock_accounts_for_link(db: Session, user: User, account_ids: list[uuid.UUID]) -> dict[uuid.UUID, FinancialAccount]:
+    ids = list(dict.fromkeys(account_ids))
+    accounts = (
+        db.query(FinancialAccount)
+        .filter(FinancialAccount.id.in_(ids), FinancialAccount.user_id == user.id)
+        .order_by(FinancialAccount.id)
+        .populate_existing()
+        .with_for_update(read=True)
+        .all()
+    )
+    found = {account.id: account for account in accounts}
+    if set(found) != set(ids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="الحساب غير موجود")
+    if any(not account.is_active for account in accounts):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="هذا الحساب مؤرشف ولا يستقبل حركات جديدة. أعد تفعيله أولاً.",
+        )
+    return found
+
+
 def _latest_snapshots(db: Session, account_ids: list[uuid.UUID]) -> dict[uuid.UUID, AccountBalanceSnapshot]:
     if not account_ids:
         return {}

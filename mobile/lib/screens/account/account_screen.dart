@@ -8,6 +8,7 @@ import '../../models/persona.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/selectable_card.dart';
 import '../auth/login_screen.dart';
+import '../financial_accounts/financial_accounts_screen.dart';
 
 /// وسوم التقييم الجاهزة (المفتاح = القيمة اللي بتنبعت للسيرفر). بدون نص حر لحماية الخصوصية.
 const Map<String, String> _feedbackTagLabels = {
@@ -55,8 +56,26 @@ class AccountScreen extends ConsumerWidget {
             text: 'الرسائل البنكية: بنقراها فقط بموافقتك، وبنفلتر الرسائل المالية على جهازك، وما بنخزّن نص الرسالة.',
           ),
           const _PrivacyPoint(
+            icon: Icons.account_balance_wallet_outlined,
+            text: 'الحسابات المالية والأرصدة اللي بتدخلها بنخزّنها لعرضها لك فقط، وما بنبعتها لـ Google Gemini، وبتنحذف مع حسابك.',
+          ),
+          const _PrivacyPoint(
             icon: Icons.delete_outline,
             text: 'بتقدر تحذف حسابك وكل بياناتك بأي وقت من هون.',
+          ),
+          const Divider(height: 32),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('حساباتي المالية', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('كاش، بنك، محفظة'),
+            subtitle: const Text('أرصدة بتدخلها بنفسك — اختيارية، وما فيها ربط مع أي بنك'),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FinancialAccountsScreen()),
+            ),
           ),
           const Divider(height: 32),
           const Padding(

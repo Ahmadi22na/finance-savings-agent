@@ -41,7 +41,7 @@ def get_essentials_estimate(db: Session, user: User) -> EssentialsEstimate:
     cutoff = datetime.now(timezone.utc) - timedelta(days=MIN_HISTORY_DAYS_FOR_ESTIMATE)
     oldest_transaction = (
         db.query(Transaction)
-        .filter(Transaction.user_id == user.id, Transaction.occurred_at < cutoff)
+        .filter(Transaction.user_id == user.id, Transaction.is_transfer.is_(False), Transaction.occurred_at < cutoff)
         .first()
     )
     if oldest_transaction is not None:
@@ -50,6 +50,7 @@ def get_essentials_estimate(db: Session, user: User) -> EssentialsEstimate:
             .filter(
                 Transaction.user_id == user.id,
                 Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_transfer.is_(False),  # التحويل الداخلي مش مصروف حقيقي
                 Transaction.occurred_at >= cutoff,
             )
             .all()

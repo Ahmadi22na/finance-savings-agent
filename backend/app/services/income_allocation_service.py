@@ -37,8 +37,8 @@ def get_allocated_amount(db: Session, transaction_id: uuid.UUID) -> Decimal:
 
 
 def get_unallocated_amount(db: Session, transaction: Transaction) -> Decimal:
-    """0 دايمًا لمعاملات المصروف — مفهوم التوزيع خاص بالدخل بس."""
-    if transaction.type != TransactionType.INCOME:
+    """0 دايمًا لمعاملات المصروف وأطراف التحويل الداخلي — مفهوم التوزيع خاص بالدخل الحقيقي بس."""
+    if transaction.type != TransactionType.INCOME or transaction.is_transfer:
         return ZERO
     return max(ZERO, to_money(transaction.amount) - get_allocated_amount(db, transaction.id))
 
@@ -50,7 +50,7 @@ def unallocated_amounts_for(db: Session, transactions: list[Transaction]) -> dic
     "دخل بانتظار التوزيع" (استيراد الرسائل ممكن يضيف عشرات الدخول دفعة وحدة).
     المفتاح: id المعاملة، بس لمعاملات الدخل — المصروف مش موجود بالنتيجة (= 0).
     """
-    income_ids = [t.id for t in transactions if t.type == TransactionType.INCOME]
+    income_ids = [t.id for t in transactions if t.type == TransactionType.INCOME and not t.is_transfer]
     if not income_ids:
         return {}
 
@@ -64,7 +64,7 @@ def unallocated_amounts_for(db: Session, transactions: list[Transaction]) -> dic
     return {
         t.id: max(ZERO, to_money(t.amount) - allocated.get(t.id, ZERO))
         for t in transactions
-        if t.type == TransactionType.INCOME
+        if t.type == TransactionType.INCOME and not t.is_transfer
     }
 
 
@@ -100,6 +100,12 @@ def _allocate_income_locked(
     db: Session, user: User, transaction_id: uuid.UUID, data: IncomeAllocationRequest
 ) -> tuple[Transaction, list[Goal]]:
     transaction = lock_transaction_or_404(db, user, transaction_id)
+
+    if transaction.is_transfer:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="هاي حركة تحويل بين حساباتك مش دخل جديد، فما بتتوزع على الخطط",
+        )
 
     if transaction.type != TransactionType.INCOME:
         raise HTTPException(

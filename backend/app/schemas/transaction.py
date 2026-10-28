@@ -26,6 +26,10 @@ class TransactionQuickLogCreate(BaseModel):
         description="ملاحظة نصية؛ بدون `category_id` تُستخدم لتخمين التصنيف تلقائيًا",
     )
     occurred_at: datetime | None = Field(default=None, description="وقت المعاملة؛ لو ما تحدد، بنعتبره الآن")
+    account_id: uuid.UUID | None = Field(
+        default=None,
+        description="ربط المعاملة بحساب مالي (اختياري؛ حساب نشط يخص المستخدم من `GET /accounts`). بدونه ما تدخل بأي رصيد.",
+    )
     source: Literal["manual", "ocr", "sms"] = Field(
         default="manual",
         description=(
@@ -75,6 +79,16 @@ class TransactionOut(BaseModel):
     # دايمًا 0 لمعاملات المصروف (مفهوم التوزيع أصلاً خاص بالدخل بس).
     unallocated_amount: float = 0
 
+    # الحسابات المالية والتحويلات (المرحلة 1)
+    account_id: uuid.UUID | None = Field(default=None, description="الحساب المالي المرتبطة به المعاملة، أو null (بدون حساب)")
+    is_transfer: bool = Field(
+        default=False,
+        description="true = طرف من تحويل داخلي بين حسابين للمستخدم (مش دخل ولا مصروف حقيقي ولا يتوزع على أهداف)",
+    )
+    transfer_group_id: uuid.UUID | None = Field(
+        default=None, description="معرّف مجموعة التحويل: طرفا الخروج والدخول يشتركان فيه (للدمج بالعرض)"
+    )
+
     model_config = {
         "from_attributes": True,
         "json_schema_extra": {
@@ -108,6 +122,9 @@ class TransactionUpdate(BaseModel):
     amount: PositiveMoney | None = Field(default=None, description="المبلغ الجديد بالدينار (حتى 3 خانات)")
     occurred_at: datetime | None = Field(default=None, description="وقت المعاملة الجديد")
     note: str | None = Field(default=None, max_length=200, description="الملاحظة الجديدة، أو null لمسحها")
+    account_id: uuid.UUID | None = Field(
+        default=None, description="نقل المعاملة لحساب مالي نشط، أو null لفك ربطها (غير مسموح لطرف تحويل)"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -115,6 +132,7 @@ class TransactionUpdate(BaseModel):
                 {"category_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"},
                 {"category_id": None},
                 {"amount": 12.5, "note": "تصحيح المبلغ"},
+                {"account_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7"},
             ]
         }
     }

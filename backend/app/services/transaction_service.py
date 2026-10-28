@@ -12,7 +12,7 @@ from app.models.category import Category, CategoryType
 from app.models.transaction import CategoryOrigin, Transaction, TransactionSource, TransactionType
 from app.models.user import User
 from app.schemas.transaction import TransactionQuickLogCreate
-from app.services import category_service
+from app.services import category_service, financial_account_service
 from app.services.categorizer.factory import get_categorizer
 
 # تحت هذا الحد من الثقة، ما نطبّق التصنيف تلقائيًا — منرجعه كـ "اقتراح" بس
@@ -39,6 +39,10 @@ def create_quick_log_transaction(
     يرجّع (المعاملة, ai_suggested, suggestion_confidence) عشان الـ route يبني الـ Response
     بدون ما يحتاج يعرف تفاصيل منطق التصنيف.
     """
+    if data.account_id is not None:
+        # تحقق مبكر (بدون قفل) قبل ما نصرف حصة الذكاء الاصطناعي على معاملة بحساب غير صالح
+        financial_account_service.lock_account_for_link(db, user, data.account_id, lock=False)
+
     ai_suggested = False
     suggestion_confidence: float | None = None
     category_id = data.category_id
@@ -70,8 +74,13 @@ def create_quick_log_transaction(
         # لو ما قدر يخمّن، منسيب category_id فاضي — المعاملة تنحفظ بدون تصنيف
         # والمستخدم يقدر يصنّفها يدويًا لاحقًا من شاشة المعاملات
 
+    if data.account_id is not None:
+        # القفل المشترك بعد أي commit داخلي (تسجيل الاستهلاك مثلاً)، قبل الإدراج مباشرة وبنفس الـ transaction
+        financial_account_service.lock_account_for_link(db, user, data.account_id)
+
     transaction = Transaction(
         user_id=user.id,
+        account_id=data.account_id,
         category_id=category_id,
         category_origin=category_origin,
         category_confidence=round(suggestion_confidence, 2) if category_origin == CategoryOrigin.AUTO else None,
@@ -90,6 +99,8 @@ def create_quick_log_transaction(
 
 def set_category(db: Session, user: User, transaction: Transaction, category_id) -> None:
     """تصحيح المستخدم للتصنيف (بدون commit): بيصير origin=user وبتنمسح درجة الثقة (القرار صار قرار بشري)."""
+    if transaction.is_transfer:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="طرف التحويل بين الحسابات ما بيحمل تصنيف")
     if category_id is None:
         transaction.category_id = None
         transaction.category_origin = None

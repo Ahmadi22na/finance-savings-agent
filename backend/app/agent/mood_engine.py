@@ -99,6 +99,7 @@ def _sum_expenses(db: Session, user: User, start: datetime, end: datetime) -> fl
         .filter(
             Transaction.user_id == user.id,
             Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_transfer.is_(False),  # التحويل الداخلي مش مصروف حقيقي
             Transaction.occurred_at >= start,
             Transaction.occurred_at < end,
         )

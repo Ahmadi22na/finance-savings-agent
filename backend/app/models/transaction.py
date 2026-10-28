@@ -2,9 +2,10 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Numeric, Enum as SAEnum, ForeignKey, DateTime, JSON, String, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Index, Numeric, Enum as SAEnum, ForeignKey, DateTime, JSON, String, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import expression
 
 from app.database.session import Base
 from app.models.mixins import UUIDPrimaryKeyMixin, TimestampMixin
@@ -46,6 +47,17 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # لأن NULL ما بتتساوى مع بعضها بقيود UNIQUE بـ PostgreSQL وSQLite.
     __table_args__ = (
         UniqueConstraint("user_id", "external_ref", name="uq_transactions_user_external_ref"),
+        # التحويل الداخلي (المرحلة 1/1.B): المعاملة العادية بدون مجموعة، وطرف التحويل لازم يكون له مجموعة وحساب
+        CheckConstraint(
+            "(NOT is_transfer AND transfer_group_id IS NULL) OR "
+            "(is_transfer AND transfer_group_id IS NOT NULL AND account_id IS NOT NULL)",
+            name="ck_transactions_transfer_consistency",
+        ),
+        # بكل مجموعة تحويل طرف خروج واحد وطرف دخول واحد على الأكثر (مفروضة بالقاعدة)
+        Index(
+            "uq_transactions_transfer_group_type", "transfer_group_id", "type", unique=True,
+            postgresql_where=text("is_transfer"), sqlite_where=text("is_transfer"),
+        ),
     )
 
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
@@ -77,6 +89,11 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     account_id: Mapped[UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("financial_accounts.id"), nullable=True, index=True
     )
+
+    # التحويل الداخلي بين حسابين للمستخدم: معاملتان (خروج expense من حساب، ودخول income لحساب) بنفس transfer_group_id،
+    # بتنشأ وبتتعدّل وبتنحذف سوا. مستثناة من الدخل/المصروف الحقيقي (مزاج رشيد، المصاريف الأساسية، التوزيع، المقاييس).
+    is_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=expression.false())
+    transfer_group_id: Mapped[UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     category: Mapped["Category | None"] = relationship(back_populates="transactions")

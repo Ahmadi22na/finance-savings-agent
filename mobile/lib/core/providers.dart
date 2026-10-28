@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import '../services/goal_service.dart';
 import '../services/transaction_service.dart';
+import '../services/financial_account_service.dart';
 import '../services/category_service.dart';
 import '../services/agent_service.dart';
 import '../services/tts_service.dart';
@@ -28,6 +29,10 @@ final goalServiceProvider = Provider<GoalService>((ref) {
 
 final transactionServiceProvider = Provider<TransactionService>((ref) {
   return TransactionService(ref.watch(apiClientProvider));
+});
+
+final financialAccountServiceProvider = Provider<FinancialAccountService>((ref) {
+  return FinancialAccountService(ref.watch(apiClientProvider));
 });
 
 final categoryServiceProvider = Provider<CategoryService>((ref) {

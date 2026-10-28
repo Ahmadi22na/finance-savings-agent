@@ -46,6 +46,7 @@ def main() -> int:
         tables = set(inspect(conn).get_table_names())
         has_movements = "goal_movements" in tables
         has_accounts = "financial_accounts" in tables
+        has_transfers = has_accounts and "is_transfer" in {col["name"] for col in inspect(conn).get_columns("transactions")}
 
         def scalar(sql):
             return conn.execute(text(sql)).scalar()
@@ -72,6 +73,8 @@ def main() -> int:
             summary["financial_accounts"] = scalar("SELECT COUNT(*) FROM financial_accounts")
             summary["account_balance_snapshots"] = scalar("SELECT COUNT(*) FROM account_balance_snapshots")
             summary["transactions_with_account"] = scalar("SELECT COUNT(*) FROM transactions WHERE account_id IS NOT NULL")
+        if has_transfers:
+            summary["transfer_legs"] = scalar("SELECT COUNT(*) FROM transactions WHERE is_transfer")
 
         def check(bucket, label, sql):
             found = rows(sql)
@@ -116,6 +119,20 @@ def main() -> int:
                 SELECT id, account_id, as_of FROM account_balance_snapshots
                 WHERE as_of > now() + interval '1 day'""" if engine.dialect.name == "postgresql" else """
                 SELECT id, account_id, as_of FROM account_balance_snapshots WHERE 1 = 0""")
+
+        if has_transfers:
+            check(failures, "مجموعة تحويل ما طرفيها اثنين بالضبط", """
+                SELECT transfer_group_id, COUNT(*) FROM transactions WHERE is_transfer
+                GROUP BY transfer_group_id HAVING COUNT(*) <> 2""")
+            check(failures, "تحويل غير متوازن (نوعان متشابهان، أو مبلغان مختلفان، أو نفس الحساب، أو مستخدمان مختلفان)", """
+                SELECT a.transfer_group_id, a.amount, b.amount FROM transactions a
+                JOIN transactions b ON a.transfer_group_id = b.transfer_group_id AND a.id < b.id
+                WHERE a.is_transfer AND b.is_transfer
+                  AND (a.type = b.type OR a.amount <> b.amount OR a.account_id = b.account_id OR a.user_id <> b.user_id)""")
+            check(failures, "طرف تحويل عليه توزيع على أهداف", """
+                SELECT al.id, t.id FROM income_allocations al
+                JOIN transactions t ON t.id = al.transaction_id WHERE t.is_transfer""")
+            check(failures, "طرف تحويل مصنَّف", "SELECT id FROM transactions WHERE is_transfer AND category_id IS NOT NULL")
 
         # ---- WARN ----
         check(warnings, "هدف current_amount أكبر من الهدف (contribute اليدوي بدون سقف)",

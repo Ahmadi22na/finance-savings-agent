@@ -50,7 +50,9 @@ def build_report(db: Session, *, days: int = 30, now: datetime | None = None, ex
 
     goals = [g for g in db.query(Goal).all() if g.user_id in user_ids]
     first_transaction: dict = {}
-    for user_id, created_at in db.query(Transaction.user_id, Transaction.created_at).all():
+    for user_id, created_at in db.query(Transaction.user_id, Transaction.created_at).filter(
+        Transaction.is_transfer.is_(False)  # التحويل الداخلي مش "تسجيل معاملة" بمقياس التفعيل
+    ).all():
         if user_id in user_ids:
             moment = _aware(created_at)
             if user_id not in first_transaction or moment < first_transaction[user_id]:

@@ -259,6 +259,7 @@ def _suggest_category_corrections(db: Session, user: User) -> list[AgentAction]:
             Transaction.user_id == user.id,
             Transaction.category_id.is_(None),
             Transaction.note.isnot(None),
+            Transaction.is_transfer.is_(False),  # طرف التحويل ما بيحمل تصنيف
             Transaction.occurred_at >= cutoff,
         )
         .order_by(Transaction.occurred_at.desc())
